@@ -1,5 +1,5 @@
 from flask_mail import Mail
-import urllib.parse
+import os
 
 mail = Mail()
 
@@ -7,39 +7,43 @@ mail = Mail()
 SECRET_KEY = "hms-super-secret-key-change-in-prod"
 
 # ── Database Configuration ────────────────────
-DB_NAME = "HMS_DB"
-DB_USER = "postgres"
-DB_PASS = urllib.parse.quote_plus("K@rim3214s")
-DB_HOST = "localhost"
-DB_PORT = "5432"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
 
-# REQUIRED for Flask-SQLAlchemy
 SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-
 # ── Pagination ────────────────────────────────
 PAGINATION = {
-    "default":      10,
-    "patients":     10,
-    "doctors":      10,
+    "default": 10,
+    "patients": 10,
+    "doctors": 10,
     "appointments": 10,
-    "billing":      10,
-    "audit_logs":   15,
-    "users":        10,
-    "departments":  10,
-    "treatments":   10,
+    "billing": 10,
+    "audit_logs": 15,
+    "users": 10,
+    "departments": 10,
+    "treatments": 10,
 }
 
 # ── Mail Configuration ───────────────────────
 MAIL_SERVER = "smtp.gmail.com"
 MAIL_PORT = 587
 MAIL_USE_TLS = True
-MAIL_USERNAME = "shaik.karim3214@gmail.com"
-MAIL_PASSWORD = "svktbjrxzathdztn"
-MAIL_DEFAULT_SENDER = ("HMS", "shaik.karim3214@gmail.com")
+
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+
+MAIL_DEFAULT_SENDER = (
+    "HMS",
+    os.environ.get("MAIL_USERNAME")
+)
 
 # ── App meta ─────────────────────────────────
 APP_NAME = "Hospital Management System"
