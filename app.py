@@ -45,6 +45,7 @@ def create_app():
     # 🔹 DATABASE CONFIG
     app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = config.SQLALCHEMY_ENGINE_OPTIONS
 
     # 🔹 INIT EXTENSIONS
     db.init_app(app)
