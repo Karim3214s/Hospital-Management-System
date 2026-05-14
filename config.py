@@ -7,6 +7,7 @@ mail = Mail()
 SECRET_KEY = "hms-super-secret-key-change-in-prod"
 
 # ── Database Configuration ────────────────────
+# ── Database Configuration ────────────────────
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -15,9 +16,6 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
         "postgresql://",
         1
     )
-
-if DATABASE_URL:
-    DATABASE_URL += "?sslmode=require"
 
 SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
