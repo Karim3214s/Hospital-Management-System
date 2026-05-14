@@ -3,7 +3,7 @@ HMS — Hospital Management System
 Flask application entry point
 """
 
-from flask import Flask, app, session, redirect
+from flask import Flask, session, redirect
 from flask_mail import Message
 from flask_migrate import Migrate
 
