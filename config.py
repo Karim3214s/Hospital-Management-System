@@ -16,13 +16,10 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
         1
     )
 
-SQLALCHEMY_DATABASE_URI = DATABASE_URL
+if DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
 
-SQLALCHEMY_ENGINE_OPTIONS = {
-    "connect_args": {
-        "sslmode": "require"
-    }
-}
+SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # ── Pagination ────────────────────────────────
