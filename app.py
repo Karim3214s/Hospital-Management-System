@@ -50,9 +50,6 @@ def create_app():
     # 🔹 INIT EXTENSIONS
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
-
     Migrate(app, db)
     mail.init_app(app)
 
