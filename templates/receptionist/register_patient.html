@@ -1,0 +1,160 @@
+{% extends "common/base.html" %}
+{% block title %}Register Patient{% endblock %}
+{% block page_heading %}New Patient Registration{% endblock %}
+
+<!-- ✅ SIDEBAR FIX -->
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link active"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-9">
+
+    <div class="hms-card">
+      <div class="card-body p-4">
+
+        <form id="registerForm">
+
+          <!-- PERSONAL -->
+          <h6 class="fw-bold mb-3">Personal Information</h6>
+
+          <div class="row g-3 mb-4">
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">First Name *</label>
+              <input type="text" id="fname" class="form-control" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Last Name *</label>
+              <input type="text" id="lname" class="form-control" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Date of Birth *</label>
+              <input type="date" id="dob" class="form-control" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Gender *</label>
+              <select id="gender" class="form-select" required>
+                <option value="">Select</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Phone *</label>
+              <input type="tel" id="phone" class="form-control" required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-bold">Address</label>
+              <input type="text" id="address" class="form-control">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Blood Group</label>
+              <select id="bloodGroup" class="form-select">
+                <option value="">Select</option>
+                <option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option>
+                <option>O+</option><option>O-</option>
+                <option>AB+</option><option>AB-</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Emergency Contact</label>
+              <input type="tel" id="emergency" class="form-control">
+            </div>
+
+          </div>
+
+          <!-- ACCOUNT -->
+          <h6 class="fw-bold mb-3">Patient Portal (Optional)</h6>
+
+          <div class="row g-3 mb-4">
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Email</label>
+              <input type="email" id="email" class="form-control">
+              <small class="text-muted">OTP will be sent to activate account</small>
+            </div>
+
+          </div>
+
+          <!-- ACTION -->
+          <button type="submit" class="btn btn-hms-primary px-4" id="submitBtn">
+            <span id="spinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+            Register Patient
+          </button>
+
+        </form>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const payload = {
+    fname: fname.value.trim(),
+    lname: lname.value.trim(),
+    dob: dob.value,
+    gender: gender.value,
+    phone: phone.value.trim(),
+    address: address.value.trim(),
+    blood_group: bloodGroup.value || null,
+    emergency_contact: emergency.value || null,
+    email: email.value.trim().toLowerCase() || null
+  };
+
+  if (!payload.fname || !payload.lname || !payload.dob || !payload.gender || !payload.phone) {
+    showToast("Please fill required fields", "danger");
+    return;
+  }
+
+  const btn = submitBtn;
+  const spinner = document.getElementById('spinner');
+
+  btn.disabled = true;
+  spinner.classList.remove('d-none');
+
+  try {
+    const res = await apiRequest('/receptionist/api/receptionist/register-patient', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    showToast(`Patient Registered! ID: PT-${String(res.patient_id).padStart(4,'0')}`);
+
+    document.getElementById('registerForm').reset();
+
+  } catch (err) {
+    console.error(err);
+    showToast("Registration failed", "danger");
+  }
+
+  btn.disabled = false;
+  spinner.classList.add('d-none');
+});
+</script>
+{% endblock %}

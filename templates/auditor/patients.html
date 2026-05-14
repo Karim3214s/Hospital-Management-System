@@ -1,0 +1,173 @@
+{% extends "common/base.html" %}
+{% block title %}Patients — Auditor View{% endblock %}
+{% block page_heading %}Patients{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link active"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;font-size:.73rem;padding:.3rem .7rem">
+    <i class="bi bi-eye me-1"></i>View & Filter Only — No Edits Permitted
+  </span>
+  <span class="ms-auto text-muted small" id="ptCount"></span>
+  <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </button>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#e8f0fe;color:#1a73e8"><i class="bi bi-people-fill"></i></div>
+      <div><div class="stat-label">Total Patients</div><div class="stat-value" id="statTotal">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#d1fae5;color:#059669"><i class="bi bi-gender-male"></i></div>
+      <div><div class="stat-label">Male</div><div class="stat-value" id="statMale">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fce4ec;color:#e91e63"><i class="bi bi-gender-female"></i></div>
+      <div><div class="stat-label">Female</div><div class="stat-value" id="statFemale">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#ede9fe;color:#7c3aed"><i class="bi bi-calendar-plus"></i></div>
+      <div><div class="stat-label">Registered This Month</div><div class="stat-value" id="statMonth">—</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar d-flex gap-2 flex-wrap mb-3">
+  <div class="input-group input-group-sm" style="max-width:260px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" id="searchInput" class="form-control" placeholder="Search patient name…">
+  </div>
+  <select id="genderFilter" class="form-select form-select-sm" style="max-width:140px">
+    <option value="">All Genders</option>
+    <option>Male</option><option>Female</option><option>Other</option>
+  </select>
+  <div>
+    <label class="form-label small mb-1">Registered From</label>
+    <input type="date" id="regFrom" class="form-control form-control-sm">
+  </div>
+  <div>
+    <label class="form-label small mb-1">To</label>
+    <input type="date" id="regTo" class="form-control form-control-sm">
+  </div>
+  <button class="btn btn-sm btn-hms-primary align-self-end" onclick="loadPatients(1)">
+    <i class="bi bi-search me-1"></i>Filter
+  </button>
+  <button class="btn btn-sm btn-outline-secondary align-self-end" onclick="clearFilters()">Reset</button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Gender</th><th>Date of Birth</th>
+          <th>Phone</th><th>Blood Group</th><th>Registered On</th>
+        </tr></thead>
+        <tbody id="patientsBody">
+          <tr><td colspan="7" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="patientsCount"></span>
+      <div id="patientsPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function clearFilters() {
+  ['searchInput','genderFilter','regFrom','regTo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  loadPatients(1);
+}
+
+function exportCSV() {
+  window.location.href = '/auditor/api/export?type=patients';
+}
+
+async function loadPatients(page=1) {
+  document.getElementById('patientsBody').innerHTML =
+    `<tr><td colspan="7" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const search = document.getElementById('searchInput').value;
+  const gender = document.getElementById('genderFilter').value;
+  const from   = document.getElementById('regFrom').value;
+  const to     = document.getElementById('regTo').value;
+  const qs = new URLSearchParams({page});
+  if (search) qs.append('search', search);
+  if (gender) qs.append('gender', gender);
+  if (from)   qs.append('reg_from', from);
+  if (to)     qs.append('reg_to', to);
+
+  try {
+    const d = await apiRequest('/auditor/api/patients?' + qs);
+
+    if (d.stats) {
+      document.getElementById('statTotal').textContent  = d.stats.total  ?? '—';
+      document.getElementById('statMale').textContent   = d.stats.male   ?? '—';
+      document.getElementById('statFemale').textContent = d.stats.female ?? '—';
+      document.getElementById('statMonth').textContent  = d.stats.this_month ?? '—';
+    }
+
+    if (!d.items?.length) {
+      document.getElementById('patientsBody').innerHTML =
+        `<tr><td colspan="7" class="text-center py-4 text-muted">No patients found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('patientsBody').innerHTML = d.items.map(p => `
+      <tr>
+        <td><span class="text-muted small">PT-${String(p.id).padStart(4,'0')}</span></td>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge ${p.gender==='Male'?'bg-info-subtle text-info':'bg-danger-subtle text-danger'} fw-bold">${p.gender||'—'}</span></td>
+        <td>${p.dob||'—'}</td>
+        <td>${p.phone||'—'}</td>
+        <td><span class="badge bg-secondary-subtle text-secondary fw-bold">${p.blood_group||'—'}</span></td>
+        <td>${p.registered||'—'}</td>
+      </tr>`).join('');
+
+    document.getElementById('patientsCount').textContent = `Showing ${d.items.length} of ${d.total} records`;
+    renderPagination('patientsPagination', page, d.total_pages, loadPatients);
+  } catch(e) { console.error(e); }
+}
+
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => loadPatients(1), 400);
+});
+
+loadPatients(1);
+</script>
+{% endblock %}

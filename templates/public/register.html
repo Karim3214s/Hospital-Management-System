@@ -1,0 +1,359 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Patient Registration{% endblock %}
+
+{% block extra_css %}
+<style>
+  .reg-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #1a73e8; color: #fff;
+    font-weight: 800; font-size: .82rem; margin-right: .6rem; flex-shrink: 0;
+  }
+  .sec-head {
+    display: flex; align-items: center;
+    font-weight: 800; font-size: .77rem; text-transform: uppercase;
+    letter-spacing: 1px; color: #1a73e8;
+    border-bottom: 2px solid #e8edf5;
+    padding-bottom: .5rem; margin-bottom: 1.2rem; margin-top: 1.5rem;
+  }
+  .pwd-bar  { height: 4px; border-radius: 2px; background: #e3e8f0; margin-top: 4px; }
+  .pwd-fill { height: 100%; border-radius: 2px; width: 0; transition: width .3s, background .3s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin-icon {
+    display: inline-block; width: 1rem; height: 1rem;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-title bg-1">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="block text-center">
+          <span class="text-white">Create Your Account</span>
+          <h1 class="text-capitalize mb-5 text-lg">Patient Registration</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="row justify-content-center">
+
+      <!-- Left info sidebar -->
+      <div class="col-lg-4 mb-5 mb-lg-0">
+
+        <div class="p-4 mb-4" style="background:#f0f7ff;border-radius:14px;border-left:4px solid #1a73e8;">
+          <h5 style="font-weight:800;color:#1a73e8;margin-bottom:1rem;">
+            <i class="icofont-shield-alt mr-2"></i>Why Register?
+          </h5>
+          <ul class="list-unstyled mb-0" style="font-size:.9rem;line-height:2.2;">
+            <li><i class="icofont-check-circled text-success mr-2"></i>Book appointments online 24/7</li>
+            <li><i class="icofont-check-circled text-success mr-2"></i>View your treatment history</li>
+            <li><i class="icofont-check-circled text-success mr-2"></i>Download reports &amp; bills</li>
+            <li><i class="icofont-check-circled text-success mr-2"></i>Get appointment reminders</li>
+            <li><i class="icofont-check-circled text-success mr-2"></i>Track billing &amp; payments</li>
+            <li><i class="icofont-check-circled text-success mr-2"></i>Secure &amp; HIPAA-compliant</li>
+          </ul>
+        </div>
+
+        <div class="p-4 mb-4" style="background:#fff8e1;border-radius:14px;border-left:4px solid #f39c12;">
+          <h6 style="font-weight:800;color:#7a5c00;margin-bottom:.6rem;">
+            <i class="icofont-info-circle mr-2"></i>Already Registered?
+          </h6>
+          <p style="font-size:.86rem;color:#7a5c00;margin-bottom:.8rem;">
+            Sign in to manage your appointments and health records.
+          </p>
+          <a href="{{ url_for('common.login') }}" class="btn btn-warning btn-round-full btn-sm font-weight-bold w-100">
+            <i class="icofont-login mr-1"></i> Sign In to Patient Portal
+          </a>
+        </div>
+
+        <div class="p-4" style="background:#e8f5e9;border-radius:14px;border-left:4px solid #27ae60;">
+          <h6 style="font-weight:800;color:#1b5e20;margin-bottom:.6rem;">
+            <i class="icofont-phone mr-2"></i>Need Help Registering?
+          </h6>
+          <p style="font-size:.86rem;color:#2e7d32;margin-bottom:.5rem;">
+            Our coordinators are available 24/7 to assist you.
+          </p>
+          <a href="tel:+914066778899" style="font-size:1.05rem;font-weight:800;color:#1b5e20;">
+            +91-40-6677-8899
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Registration form card -->
+      <div class="col-lg-8">
+        <div style="background:#fff;border-radius:16px;box-shadow:0 4px 28px rgba(28,43,74,.10);padding:2.5rem;">
+
+          <!-- Flask flash messages -->
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for cat, msg in messages %}
+              <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' }}">
+                <i class="icofont-{{ 'check-circled' if cat == 'success' else 'warning' }} mr-2"></i>
+                {{ msg }}
+                {% if cat == 'success' %}
+                  — <a href="{{ url_for('common.login') }}" class="alert-link font-weight-bold">Sign in here &rarr;</a>
+                {% endif %}
+              </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+
+          {% if error %}
+          <div class="alert alert-danger">
+            <i class="icofont-warning mr-2"></i>{{ error }}
+          </div>
+          {% endif %}
+
+          <form id="regForm" method="POST" action="{{ url_for('common.register') }}" novalidate>
+
+            <!-- ── Section 1: Personal ─────────────────────────── -->
+            <div class="sec-head">
+              <span class="reg-badge">1</span> Personal Information
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    First Name <span class="text-danger">*</span>
+                  </label>
+                  <input type="text" name="fname" class="form-control"
+                         placeholder="e.g. Ravi"
+                         value="{{ request.form.get('fname','') }}" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Last Name <span class="text-danger">*</span>
+                  </label>
+                  <input type="text" name="lname" class="form-control"
+                         placeholder="e.g. Kumar"
+                         value="{{ request.form.get('lname','') }}" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Date of Birth <span class="text-danger">*</span>
+                  </label>
+                  <input type="date" name="dob" class="form-control"
+                         value="{{ request.form.get('dob','') }}" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Gender <span class="text-danger">*</span>
+                  </label>
+                  <select name="gender" class="form-control" required>
+                    <option value="">Select…</option>
+                    <option {% if request.form.get('gender')=='Male' %}selected{% endif %}>Male</option>
+                    <option {% if request.form.get('gender')=='Female' %}selected{% endif %}>Female</option>
+                    <option {% if request.form.get('gender')=='Other' %}selected{% endif %}>Other</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">Blood Group</label>
+                  <select name="blood_group" class="form-control">
+                    <option value="">Select…</option>
+                    {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+                    <option>{{ bg }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Phone Number <span class="text-danger">*</span>
+                  </label>
+                  <input type="tel" name="phone" class="form-control"
+                         placeholder="10-digit mobile" maxlength="10"
+                         pattern="[6-9][0-9]{9}"
+                         value="{{ request.form.get('phone','') }}" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">Emergency Contact</label>
+                  <input type="text" name="emergency_contact" class="form-control"
+                         placeholder="Name · Phone (e.g. Sita · 9876543210)"
+                         value="{{ request.form.get('emergency_contact','') }}">
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">Address</label>
+                  <input type="text" name="address" class="form-control"
+                         placeholder="Street, Area, City, PIN code"
+                         value="{{ request.form.get('address','') }}">
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Section 2: Account ──────────────────────────── -->
+            <div class="sec-head">
+              <span class="reg-badge">2</span> Portal Account Setup
+            </div>
+            <div class="row">
+              <div class="col-12">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Email Address <span class="text-danger">*</span>
+                  </label>
+                  <input type="email" name="email" class="form-control"
+                         placeholder="your@email.com"
+                         value="{{ request.form.get('email','') }}" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Password <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group">
+                    <input type="password" name="password" id="rPwd" class="form-control"
+                           placeholder="Min. 8 characters" minlength="8" required>
+                    <div class="input-group-append">
+                      <button class="btn btn-outline-secondary" type="button" id="togglePwd" tabindex="-1">
+                        <i class="icofont-eye" id="eyeIcon"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="pwd-bar mt-1"><div class="pwd-fill" id="pwdFill"></div></div>
+                  <small id="pwdLabel" style="font-size:.72rem;color:#888;">
+                    Use 8+ characters with letters &amp; numbers
+                  </small>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label style="font-weight:700;font-size:.82rem;color:#444;">
+                    Confirm Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" id="rConfirm" class="form-control"
+                         placeholder="Re-enter password" required>
+                  <div id="confirmMsg" style="font-size:.78rem;color:#e74c3c;display:none;margin-top:4px;">
+                    Passwords do not match.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Section 3: Consent ──────────────────────────── -->
+            <div class="sec-head">
+              <span class="reg-badge">3</span> Consent &amp; Agreement
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="terms" id="rTerms" required>
+                <label class="form-check-label" for="rTerms" style="font-size:.88rem;">
+                  I agree to the <a href="#!" style="color:#1a73e8;font-weight:700;">Terms &amp; Conditions</a> and
+                  <a href="#!" style="color:#1a73e8;font-weight:700;">Privacy Policy</a> of Marvel Hospitals.
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="sms_consent" id="rConsent">
+                <label class="form-check-label" for="rConsent" style="font-size:.88rem;">
+                  I consent to receiving appointment reminders &amp; health updates via SMS/email.
+                </label>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center mt-4" style="gap:1rem;">
+              <button type="submit" class="btn btn-main btn-round-full px-5" id="regBtn">
+                <span id="regSpinner" class="spin-icon d-none mr-2"></span>
+                <i class="icofont-user-alt-3 mr-2" id="regIcon"></i>
+                Create My Account
+              </button>
+              <span style="font-size:.85rem;color:#888;">
+                Already have an account?
+                <a href="{{ url_for('common.login') }}" style="color:#1a73e8;font-weight:700;">Sign in</a>
+              </span>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Password toggle ───────────────────────────────── */
+document.getElementById('togglePwd').addEventListener('click', function () {
+  const f    = document.getElementById('rPwd');
+  const icon = document.getElementById('eyeIcon');
+  if (f.type === 'password') { f.type = 'text';     icon.className = 'icofont-eye-blocked'; }
+  else                       { f.type = 'password'; icon.className = 'icofont-eye'; }
+});
+
+/* ── Password strength ─────────────────────────────── */
+document.getElementById('rPwd').addEventListener('input', function () {
+  const v = this.value;
+  let s = 0;
+  if (v.length >= 8) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  const cfg = [
+    { w:'0%',   bg:'#e3e8f0', lbl:'' },
+    { w:'25%',  bg:'#e74c3c', lbl:'Weak' },
+    { w:'50%',  bg:'#f39c12', lbl:'Fair' },
+    { w:'75%',  bg:'#3498db', lbl:'Good' },
+    { w:'100%', bg:'#27ae60', lbl:'Strong' },
+  ];
+  const bar = document.getElementById('pwdFill');
+  const lbl = document.getElementById('pwdLabel');
+  bar.style.width      = cfg[s].w;
+  bar.style.background = cfg[s].bg;
+  lbl.textContent      = cfg[s].lbl || 'Use 8+ characters with letters & numbers';
+  lbl.style.color      = cfg[s].bg || '#888';
+});
+
+/* ── Live confirm match ────────────────────────────── */
+document.getElementById('rConfirm').addEventListener('input', function () {
+  const match = this.value === document.getElementById('rPwd').value;
+  document.getElementById('confirmMsg').style.display = (this.value && !match) ? 'block' : 'none';
+});
+
+/* ── Block submit if passwords don't match ─────────── */
+document.getElementById('regForm').addEventListener('submit', function (e) {
+  const pwd = document.getElementById('rPwd').value;
+  const cfm = document.getElementById('rConfirm').value;
+  if (pwd !== cfm) {
+    e.preventDefault();
+    document.getElementById('confirmMsg').style.display = 'block';
+    document.getElementById('rConfirm').focus();
+    return;
+  }
+  /* Show spinner */
+  const btn = document.getElementById('regBtn');
+  const sp  = document.getElementById('regSpinner');
+  const ic  = document.getElementById('regIcon');
+  btn.disabled = true;
+  sp.classList.remove('d-none');
+  ic.style.display = 'none';
+});
+</script>
+{% endblock %}

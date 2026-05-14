@@ -1,0 +1,273 @@
+{% extends "common/base.html" %}
+{% block title %}Patient History{% endblock %}
+{% block page_heading %}Patient History{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+
+<a href="/doctor/patient-history" class="nav-link active">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- 🔍 SEARCH -->
+<div class="hms-card mb-4">
+  <div class="card-body p-3">
+    <div class="input-group">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="text" id="patientSearch" class="form-control"
+             placeholder="Search patient by name or ID…"/>
+      <button class="btn btn-hms-primary" id="searchBtn">Search</button>
+    </div>
+
+    <div class="text-muted small mt-2">
+      💡 Search by patient name or ID to view history
+    </div>
+
+    <div id="searchResults" class="list-group mt-2 shadow-sm d-none"></div>
+  </div>
+</div>
+
+<!-- 📊 QUICK STATS -->
+<div class="hms-card mb-4">
+  <div class="card-body d-flex justify-content-between text-center">
+
+    <div>
+      <div class="fw-bold text-primary" id="totalPatients">—</div>
+      <div class="text-muted small">Patients Seen</div>
+    </div>
+
+    <div>
+      <div class="fw-bold text-success" id="totalRecords">—</div>
+      <div class="text-muted small">Treatments Done</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 🕒 RECENT PATIENTS -->
+<div class="hms-card mb-4">
+  <div class="card-header">
+    <i class="bi bi-clock text-primary"></i>
+    <h6>Recent Patients</h6>
+  </div>
+
+  <div class="card-body p-2" id="recentPatients">
+    <div class="text-center py-3 text-muted">Loading...</div>
+  </div>
+</div>
+
+<!-- 📄 HISTORY SECTION -->
+<div id="historySection" class="d-none">
+
+  <!-- Patient Info -->
+  <div class="hms-card mb-4">
+    <div class="card-body p-4">
+
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="user-thumb" style="width:56px;height:56px;border-radius:50%;
+             background:var(--hms-primary);color:#fff;display:flex;
+             align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;">
+          <span id="ptInitials">—</span>
+        </div>
+
+        <div>
+          <h5 class="fw-bold mb-1" id="ptName">—</h5>
+          <div class="text-muted" style="font-size:.85rem;" id="ptMeta">—</div>
+        </div>
+
+        <span class="ms-auto badge-status status-active">Active</span>
+      </div>
+
+      <div class="row g-2" style="font-size:.85rem;">
+        <div class="col-md-4"><span class="text-muted">DOB:</span> <strong id="ptDob">—</strong></div>
+        <div class="col-md-4"><span class="text-muted">Gender:</span> <strong id="ptGender">—</strong></div>
+        <div class="col-md-4"><span class="text-muted">Phone:</span> <strong id="ptPhone">—</strong></div>
+        <div class="col-12"><span class="text-muted">Address:</span> <strong id="ptAddr">—</strong></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="hms-card">
+    <div class="card-header">
+      <i class="bi bi-clock-history text-primary"></i>
+      <h6>Treatment History</h6>
+      <span class="ms-auto text-muted small" id="histCount"></span>
+    </div>
+
+    <div class="card-body p-0" id="historyBody">
+      <div class="text-center py-4">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end p-3" id="histPagination"></div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+let histPage = 1;
+let selectedPatientId = null;
+
+// 🔍 SEARCH
+async function searchPatients(q) {
+  if (!q.trim()) return;
+
+  const data = await apiRequest(`/doctor/api/search-patients?q=${encodeURIComponent(q)}`);
+  const res = document.getElementById('searchResults');
+
+  if (!data.length) {
+    res.innerHTML = '<div class="list-group-item text-muted">No patients found</div>';
+  } else {
+    res.innerHTML = data.map(p => `
+      <a class="list-group-item list-group-item-action"
+         onclick="selectPatient(${p.patient_Id})">
+        ${p.FName} ${p.LName}
+        <span class="text-muted ms-2 small">PT-${p.patient_Id}</span>
+      </a>
+    `).join('');
+  }
+
+  res.classList.remove('d-none');
+}
+
+// 🧠 SELECT PATIENT
+async function selectPatient(id) {
+
+  selectedPatientId = id;
+  localStorage.setItem("lastPatient", id);
+
+  document.getElementById('historySection').classList.remove('d-none');
+  document.getElementById('searchResults').classList.add('d-none');
+
+  const p = await apiRequest(`/doctor/api/patient/${id}`);
+
+  document.getElementById('ptInitials').textContent =
+    (p.FName[0] || '') + (p.LName[0] || '');
+
+  document.getElementById('ptName').textContent =
+    `${p.FName} ${p.LName}`;
+
+  document.getElementById('ptMeta').textContent =
+    `PT-${p.patient_Id}`;
+
+  document.getElementById('ptDob').textContent = p.Date_Of_Birth || '—';
+  document.getElementById('ptGender').textContent = p.Gender || '—';
+  document.getElementById('ptPhone').textContent = p.contact_No || '—';
+  document.getElementById('ptAddr').textContent = p.pt_Address || '—';
+
+  loadHistory(1);
+}
+
+// 📄 LOAD HISTORY
+async function loadHistory(page = 1) {
+
+  histPage = page;
+
+  const body = document.getElementById('historyBody');
+  body.innerHTML = `<div class="text-center py-4">
+    <div class="spinner-border spinner-border-sm text-primary"></div>
+  </div>`;
+
+  const data = await apiRequest(`/doctor/api/patient-history/${selectedPatientId}?page=${page}`);
+
+  document.getElementById('histCount').textContent =
+    `${data.total ?? 0} records`;
+
+  if (!data.items?.length) {
+    body.innerHTML = `<div class="text-center py-4 text-muted">No records</div>`;
+    return;
+  }
+
+  body.innerHTML = data.items.map(r => `
+    <div class="border-bottom p-4">
+      <strong>${r.visit_Date}</strong><br>
+      <span>${r.diagnosis}</span><br>
+      <span class="text-muted">${r.treatment}</span>
+    </div>
+  `).join('');
+}
+
+// 🕒 RECENT PATIENTS
+async function loadRecentPatients() {
+
+  const data = await apiRequest('/doctor/api/appointments?tab=Today&page=1');
+  const container = document.getElementById('recentPatients');
+
+  if (!data.items?.length) {
+    container.innerHTML = `<div class="text-center text-muted">No patients</div>`;
+    return;
+  }
+
+  container.innerHTML = data.items.slice(0,5).map(p => `
+    <div class="d-flex justify-content-between p-2 border-bottom">
+      <div>
+        <strong>${p.patient_name}</strong><br>
+        <small>PT-${p.patient_Id}</small>
+      </div>
+      <button class="btn btn-sm btn-outline-primary"
+        onclick="selectPatient(${p.patient_Id})">
+        View
+      </button>
+    </div>
+  `).join('');
+}
+
+// 📊 QUICK STATS
+async function loadStats() {
+  const data = await apiRequest('/doctor/api/analytics/my-summary');
+
+  document.getElementById('totalPatients').textContent =
+    data.unique_patients || 0;
+
+  document.getElementById('totalRecords').textContent =
+    data.completed_appointments || 0;
+}
+
+// EVENTS
+document.getElementById('patientSearch')
+  .addEventListener('input', (e) => searchPatients(e.target.value));
+
+document.getElementById('searchBtn')
+  .addEventListener('click', () => searchPatients(
+    document.getElementById('patientSearch').value
+  ));
+
+// INIT
+loadRecentPatients();
+loadStats();
+
+// 🔁 LAST PATIENT AUTO LOAD
+const last = localStorage.getItem("lastPatient");
+if (last) selectPatient(parseInt(last));
+
+</script>
+{% endblock %}

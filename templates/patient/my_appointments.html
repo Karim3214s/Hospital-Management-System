@@ -1,0 +1,630 @@
+{% extends "common/base.html" %}
+{% block title %}My Appointments{% endblock %}
+{% block page_heading %}My Appointments{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Patient</span>
+<a href="/patient/profile" class="nav-link"><i class="bi bi-person-circle"></i> My Profile</a>
+<a href="/patient/appointments" class="nav-link active"><i class="bi bi-calendar2-check"></i> My Appointments</a>
+<a href="/patient/bills" class="nav-link"><i class="bi bi-receipt"></i> My Bills</a>
+<a href="/patient/treatments" class="nav-link"><i class="bi bi-clipboard2-pulse"></i> View Treatments</a>
+<span class="nav-label">Account</span>
+<a href="/logout" class="nav-link text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="hms-card booking-card mb-4 mx-auto">
+
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-calendar2-plus text-primary"></i>
+    <h6 class="mb-0 fw-bold">Book Appointment</h6>
+  </div>
+
+  <div class="card-body">
+
+    <!-- ROW 1 -->
+    <div class="row g-4 mb-3">
+
+      <div class="col-lg-4">
+        <label class="form-label fw-semibold">
+          Department
+        </label>
+
+        <select id="bkDept" class="form-select form-select">
+          <option value="">
+            Select Department
+          </option>
+        </select>
+      </div>
+
+      <div class="col-lg-4">
+        <label class="form-label fw-semibold">
+          Doctor
+        </label>
+
+        <select id="bkDoctor" class="form-select">
+          <option value="">
+            Select Doctor
+          </option>
+        </select>
+      </div>
+
+      <div class="col-lg-4">
+        <label class="form-label fw-semibold">
+          Appointment Date
+        </label>
+
+        <input
+          type="date"
+          id="bkDate"
+          class="form-control form-control-lg"
+        >
+      </div>
+
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="row g-4 align-items-end">
+
+      <div class="col-lg-4">
+
+        <label class="form-label fw-semibold">
+          Available Slot
+        </label>
+
+        <select id="bkSlot" class="form-select">
+
+          <option value="">
+            Select Slot
+          </option>
+
+        </select>
+
+      </div>
+
+      <div class="col-lg-3">
+
+        <label class="form-label fw-semibold">
+          Consultation Fee
+        </label>
+
+        <div class="input-group input-group-lg">
+
+          <span class="input-group-text">
+            ₹
+          </span>
+
+          <input
+            type="text"
+            id="bkFee"
+            class="form-control"
+            readonly
+            placeholder="0"
+          >
+
+        </div>
+
+      </div>
+
+      <div class="col-lg-5">
+
+        <button
+          id="bkBtn"
+          class="btn btn-hms-primary py-2 w-100"
+          onclick="bookAppointment()"
+          disabled
+        >
+
+          <i class="bi bi-check2-circle me-2"></i>
+
+          Confirm Appointment
+
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- LEAVE WARNING -->
+    <div
+      id="leaveWarning"
+      class="alert alert-danger mt-4 d-none"
+    >
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+
+      Doctor is on leave on selected date.
+    </div>
+
+  </div>
+</div>
+
+
+<div class="filter-bar">
+  <div class="btn-group" id="tabGroup">
+    <button class="btn btn-hms-primary" data-tab="All">All</button>
+    <button class="btn btn-outline-secondary" data-tab="Upcoming">Upcoming</button>
+    <button class="btn btn-outline-secondary" data-tab="Past">Past</button>
+    <button class="btn btn-outline-secondary" data-tab="Cancelled">Cancelled</button>
+  </div>
+</div>
+
+
+<div class="hms-card">
+  <div class="card-body p-0" id="apptContainer">
+    <div class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary"></div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end p-3" id="apptPagination"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<style>
+
+.booking-card{
+  border:none;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 2px 12px rgba(0,0,0,.05);
+}
+
+.booking-card .card-header{
+  padding:.9rem 1.2rem;
+  background:#fff;
+  border-bottom:1px solid #eef2f7;
+}
+
+.booking-card .card-header h5{
+  font-weight:700;
+}
+
+.booking-card .card-body{
+  padding:1.4rem;
+  background:#fff;
+}
+
+.booking-card .form-label{
+  margin-bottom:.65rem;
+  color:#374151;
+  font-weight:600;
+}
+
+.booking-card .form-select,
+.booking-card .form-control{
+  border-radius:10px;
+  min-height:44px;
+  border:1px solid #dbe3ea;
+  box-shadow:none;
+}
+
+.booking-card .form-select:focus,
+.booking-card .form-control:focus{
+  border-color:#0d6efd;
+  box-shadow:0 0 0 .15rem rgba(13,110,253,.1);
+}
+
+.booking-card .input-group-text{
+  border-radius:14px 0 0 14px;
+  border:1px solid #dbe3ea;
+  background:#f8fafc;
+}
+
+.booking-card .btn{
+  border-radius:10px;
+  min-height:44px;
+  font-weight:600;
+  letter-spacing:.2px;
+}
+
+#leaveWarning{
+  border-radius:10px;
+  font-weight:500;
+}
+
+.filter-bar{
+  margin-bottom:1.2rem;
+}
+
+.filter-bar{
+  margin-bottom:1rem;
+}
+
+.filter-bar .btn-group{
+  gap:.45rem;
+  flex-wrap:wrap;
+}
+
+.filter-bar .btn{
+
+  padding:.42rem .9rem;
+
+  border-radius:10px !important;
+
+  font-size:.92rem;
+
+  font-weight:500;
+
+  min-width:95px;
+
+  height:40px;
+
+  border-width:1px;
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:center;
+
+  transition:.2s ease;
+}
+
+#apptContainer .border-bottom:last-child{
+  border-bottom:none !important;
+}
+
+#apptContainer .border-bottom{
+  transition:.2s ease;
+}
+
+#apptContainer .border-bottom:hover{
+  background:#f8fbff;
+}
+
+.appointment-card{
+  border-radius:14px;
+}
+
+@media (max-width:992px){
+
+  .booking-card .card-body{
+    padding:1.25rem;
+  }
+
+}
+
+</style>
+<script>
+
+  let aPage = 1
+  let aTab = 'All'
+
+  const bkDept = document.getElementById('bkDept')
+  const bkDoctor = document.getElementById('bkDoctor')
+  const bkDate = document.getElementById('bkDate')
+  const today = new Date().toISOString().split('T')[0]
+  bkDate.min = today
+  const bkSlot = document.getElementById('bkSlot')
+  const bkFee = document.getElementById('bkFee')
+  const bkBtn = document.getElementById('bkBtn')
+
+
+  // ─────────────────────────────────────────────
+  // LOAD DEPARTMENTS
+  // ─────────────────────────────────────────────
+  async function loadBookingDepts() {
+
+    const data = await apiRequest('/api/departments')
+
+    bkDept.innerHTML = `<option value="">-- Select Department --</option>`
+
+    data.forEach(d => {
+      bkDept.innerHTML += `
+        <option value="${d.dept_Id}">
+          ${d.dept_Name}
+        </option>`
+    })
+  }
+
+
+  // ─────────────────────────────────────────────
+  // LOAD DOCTORS
+  // ─────────────────────────────────────────────
+  async function loadBookingDoctors() {
+
+    const dept = bkDept.value
+
+    bkDoctor.innerHTML = `<option value="">-- Select Doctor --</option>`
+    bkFee.value = ''
+    bkBtn.disabled = true
+
+    if (!dept) return
+
+    const data = await apiRequest(`/api/doctors?dept=${dept}`)
+
+    data.forEach(d => {
+
+      const name =
+        `${d.FName} ${d.LName}`.replace('Dr. Dr.', 'Dr.')
+
+      bkDoctor.innerHTML += `
+        <option value="${d.doct_Id}">
+          ${name}
+        </option>`
+    })
+  }
+
+
+  // ─────────────────────────────────────────────
+  // LOAD SLOTS
+  // ─────────────────────────────────────────────
+  async function loadSlots() {
+
+  const doctor = bkDoctor.value
+  const date = bkDate.value
+
+  const leaveWarning =
+    document.getElementById('leaveWarning')
+
+  leaveWarning.classList.add('d-none')
+
+  bkSlot.innerHTML =
+    `<option value="">Select Slot</option>`
+
+  bkBtn.disabled = true
+
+  if (!doctor || !date) {
+    validateBooking()
+    return
+  }
+
+  // CHECK LEAVE
+  const leaveData =
+    await apiRequest(
+      `/api/check-doctor-leave?doctor=${doctor}&date=${date}`
+    )
+
+  if (leaveData.on_leave) {
+
+    leaveWarning.classList.remove('d-none')
+
+    bkSlot.innerHTML = `
+      <option value="">
+        Doctor On Leave
+      </option>
+    `
+
+    return
+  }
+
+  // LOAD SLOTS
+  const data =
+    await apiRequest(
+      `/api/slots?doctor=${doctor}&date=${date}`
+    )
+
+  // NO SLOTS
+  if (!data.length) {
+
+    bkSlot.innerHTML = `
+      <option value="">
+        No Slots Available
+      </option>
+    `
+
+    return
+  }
+
+  // POPULATE SLOTS
+  data.forEach(s => {
+
+    bkSlot.innerHTML += `
+      <option value="${s.time}">
+        ${s.time}
+      </option>
+    `
+  })
+
+  validateBooking()
+}
+  // ─────────────────────────────────────────────
+  // LOAD FEE FROM FEE MASTER
+  // ─────────────────────────────────────────────
+  async function loadFee() {
+
+    const doctor = bkDoctor.value
+
+    if (!doctor) {
+      bkFee.value = ''
+      bkBtn.disabled = true
+      return
+    }
+
+    try {
+
+      const data =
+        await apiRequest(`/api/fee?doctor=${doctor}`)
+
+      bkFee.value = `₹${data.fee || 0}`
+
+    } catch {
+      bkFee.value = '₹0'
+    }
+
+    validateBooking()
+  }
+
+
+  // ─────────────────────────────────────────────
+  // VALIDATE FORM → ENABLE BUTTON
+  // ─────────────────────────────────────────────
+  function validateBooking() {
+
+    const isValid =
+      bkDept.value &&
+      bkDoctor.value &&
+      bkDate.value &&
+      bkSlot.value &&
+      bkFee.value
+
+    bkBtn.disabled = !isValid
+  }
+
+
+  // ─────────────────────────────────────────────
+  // BOOK APPOINTMENT
+  // ─────────────────────────────────────────────
+  async function bookAppointment() {
+
+    if (bkBtn.disabled) return
+
+    await apiRequest('/api/patient/book', {
+      method: 'POST',
+      body: JSON.stringify({
+        doctor_id: bkDoctor.value,
+        date: bkDate.value,
+        slot: bkSlot.value,
+        fee: bkFee.value.replace('₹', ''),
+        reason: 'Patient booking'
+      })
+    })
+
+    showToast('Appointment booked')
+
+    // RESET FORM
+    bkDept.value = ''
+    bkDoctor.innerHTML = `<option value="">-- Select Doctor --</option>`
+    bkDate.value = ''
+    bkSlot.innerHTML = `<option value="">-- Select Slot --</option>`
+    bkFee.value = ''
+    bkBtn.disabled = true
+
+    loadAppts(1)
+  }
+
+
+  // ─────────────────────────────────────────────
+  // EVENTS
+  // ─────────────────────────────────────────────
+  bkDept.addEventListener('change', () => {
+    loadBookingDoctors()
+    validateBooking()
+  })
+
+  bkDoctor.addEventListener('change', () => {
+    loadSlots()
+    loadFee()
+  })
+
+  bkDate.addEventListener('change', () => {
+    loadSlots()
+  })
+
+  bkSlot.addEventListener('change', validateBooking)
+
+
+  // ─────────────────────────────────────────────
+  // APPOINTMENTS LIST (UNCHANGED)
+  // ─────────────────────────────────────────────
+  async function loadAppts(page = 1) {
+
+    aPage = page
+
+    const container =
+      document.getElementById('apptContainer')
+
+    const data =
+      await apiRequest(
+        `/api/patient/appointments?tab=${aTab}&page=${page}`
+      )
+
+    if (!data.items?.length) {
+      container.innerHTML =
+        `<div class="text-center py-5 text-muted">
+        No appointments found
+      </div>`
+      return
+    }
+
+    container.innerHTML =
+      data.items.map(a => `
+
+<div class="border-bottom p-3 appointment-card">
+
+<div class="d-flex justify-content-between">
+
+<div>
+<div class="fw-bold">
+${a.appointment_date}
+<span class="text-muted ms-2">
+${a.appointment_time || ''}
+</span>
+</div>
+
+<div class="text-primary fw-bold">
+${a.reason || 'Appointment'}
+</div>
+
+<div class="text-muted">
+${a.doctor_name || '—'}
+${a.dept_name ? ' · ' + a.dept_name : ''}
+</div>
+</div>
+
+<div>
+${statusBadge(a.appointment_status)}
+
+${a.appointment_status === 'Scheduled'
+          ? `<button class="btn btn-sm btn-outline-danger mt-2"
+onclick="cancelAppt(${a.appointment_Id})">
+Cancel
+</button>`
+          : ''}
+
+</div>
+
+</div>
+</div>
+
+`).join('')
+  }
+
+
+  async function cancelAppt(id) {
+
+    await apiRequest(
+      `/api/patient/appointments/${id}/cancel`,
+      { method: 'POST' }
+    )
+
+    showToast('Cancelled', 'warning')
+    loadAppts(aPage)
+  }
+
+
+  document.querySelectorAll('#tabGroup button')
+    .forEach(btn => {
+      btn.addEventListener('click', function () {
+
+        document.querySelectorAll('#tabGroup button')
+          .forEach(b => {
+            b.classList.replace(
+              'btn-hms-primary',
+              'btn-outline-secondary'
+            )
+          })
+
+        this.classList.replace(
+          'btn-outline-secondary',
+          'btn-hms-primary'
+        )
+
+        aTab = this.dataset.tab
+        loadAppts(1)
+
+      })
+    })
+
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadBookingDepts()
+    loadAppts(1)
+    bkBtn.disabled = true
+  })
+
+</script>
+{% endblock %}

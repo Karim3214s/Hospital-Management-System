@@ -1,0 +1,220 @@
+{% extends "common/base.html" %}
+{% block title %}My Analytics{% endblock %}
+{% block page_heading %}My Performance Analytics{% endblock %}
+
+{% block sidebar_nav %}
+
+<a href="/doctor/appointments" class="nav-link ">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link active">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .analytics-section-title {
+    font-size:.7rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:1.5px; color:#9ca3af; margin:1.75rem 0 .75rem;
+  }
+  .chart-card { background:#fff; border-radius:12px; box-shadow:var(--hms-card-shadow); border:1px solid #e6ebf2; }
+  .chart-card .chart-header {
+    padding:.9rem 1.1rem; border-bottom:1px solid #f0f4f8;
+    display:flex; align-items:center; gap:.6rem;
+  }
+  .chart-card .chart-header h6 { margin:0; font-weight:800; font-size:.88rem; color:#1c2b4a; }
+  .chart-card .chart-body { padding:1rem 1.1rem 1.1rem; }
+  .kpi-mini { background:#fff; border-radius:12px; box-shadow:var(--hms-card-shadow); padding:1rem 1.2rem; border-left:4px solid #1a73e8; }
+  .kpi-mini .val { font-size:1.5rem; font-weight:800; color:#1c2b4a; }
+  .kpi-mini .lbl { font-size:.72rem; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Summary KPIs ──────────────────────────────────────────────────── -->
+<div class="row g-3 mb-2" id="summaryRow">
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#1a73e8">
+      <div class="lbl">Total Appointments</div>
+      <div class="val" id="sumTotal">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#27ae60">
+      <div class="lbl">Completed</div>
+      <div class="val" id="sumCompleted">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#f39c12">
+      <div class="lbl">Today's Appointments</div>
+      <div class="val" id="sumToday">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#6366f1">
+      <div class="lbl">Unique Patients</div>
+      <div class="val" id="sumPatients">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ APPOINTMENT TRENDS ════════════════════ -->
+<p class="analytics-section-title"><i class="bi bi-calendar2-check me-1"></i> Appointment Trends</p>
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-graph-up text-primary"></i><h6>My Appointments per Month</h6></div>
+      <div class="chart-body"><canvas id="apptTrendChart" height="110"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-pie-chart-fill text-danger"></i><h6>Status Breakdown</h6></div>
+      <div class="chart-body"><canvas id="statusChart" height="210"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-clock-fill text-warning"></i><h6>Appointments by Time Slot</h6></div>
+      <div class="chart-body"><canvas id="slotChart" height="210"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-graph-down text-danger"></i><h6>No-Show Rate Over Time (%)</h6></div>
+      <div class="chart-body"><canvas id="noshowChart" height="110"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PATIENT INSIGHTS ═══════════════════════ -->
+<p class="analytics-section-title"><i class="bi bi-people-fill me-1"></i> Patient Insights</p>
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-bar-chart-fill text-success"></i><h6>My Patients by Age Group</h6></div>
+      <div class="chart-body"><canvas id="ageChart" height="210"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-clipboard2-pulse-fill text-primary"></i><h6>Top 10 Diagnoses (My Patients)</h6></div>
+      <div class="chart-body"><canvas id="diagnosisChart" height="110"></canvas></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PALETTE = ['#1a73e8','#27ae60','#f39c12','#e74c3c','#6366f1','#17a589','#e91e63','#ff9800','#00bcd4','#9c27b0'];
+
+function mkChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: type === 'pie' || type === 'doughnut' ? 'bottom' : 'top', labels: { font: { size: 11 } } } },
+      ...opts
+    }
+  });
+}
+
+async function loadAll() {
+  // Summary
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-summary');
+    document.getElementById('sumTotal').textContent = d.total_appointments;
+    document.getElementById('sumCompleted').textContent = d.completed_appointments;
+    document.getElementById('sumToday').textContent = d.today_appointments;
+    document.getElementById('sumPatients').textContent = d.unique_patients;
+  } catch(e) {}
+
+  // Appointment trend
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-appointment-trend');
+    mkChart('apptTrendChart', 'line', d.labels, [{
+      label: 'Appointments', data: d.counts,
+      borderColor: '#1a73e8', backgroundColor: 'rgba(26,115,232,.1)',
+      tension: 0.4, fill: true, pointRadius: 4
+    }]);
+  } catch(e) {}
+
+  // Status breakdown
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-appointment-status');
+    const colors = { Scheduled:'#1a73e8', Completed:'#27ae60', Cancelled:'#e74c3c', 'No-show':'#f39c12', 'In-Progress':'#6366f1', 'Checked-In':'#17a589' };
+    mkChart('statusChart', 'doughnut', d.labels, [{
+      data: d.counts, backgroundColor: d.labels.map(l => colors[l] || '#aaa'), borderWidth: 2
+    }]);
+  } catch(e) {}
+
+  // Time slot
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-timeslot-distribution');
+    mkChart('slotChart', 'bar', d.labels, [{
+      label: 'Appointments', data: d.counts,
+      backgroundColor: ['#f39c12','#1a73e8','#6366f1'], borderRadius: 8
+    }], { plugins: { legend: { display: false } } });
+  } catch(e) {}
+
+  // No-show trend
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-noshow-trend');
+    const rates = d.total.map((t, i) => t > 0 ? +((d.noshows[i] / t * 100).toFixed(1)) : 0);
+    mkChart('noshowChart', 'line', d.labels, [{
+      label: 'No-Show Rate (%)', data: rates,
+      borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,.08)',
+      tension: 0.4, fill: true, pointRadius: 4
+    }]);
+  } catch(e) {}
+
+  // Age groups
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-patient-age-groups');
+    mkChart('ageChart', 'bar', d.labels, [{
+      label: 'Patients', data: d.counts,
+      backgroundColor: PALETTE, borderRadius: 6
+    }], { plugins: { legend: { display: false } } });
+  } catch(e) {}
+
+  // Top diagnoses
+  try {
+    const d = await apiRequest('/doctor/api/analytics/my-top-diagnoses');
+    mkChart('diagnosisChart', 'bar', d.labels, [{
+      label: 'Cases', data: d.counts,
+      backgroundColor: '#17a589', borderRadius: 5
+    }], { indexAxis: 'y', plugins: { legend: { display: false } } });
+  } catch(e) {}
+}
+
+loadAll();
+</script>
+{% endblock %}

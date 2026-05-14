@@ -1,0 +1,146 @@
+{% extends "common/base.html" %}
+{% block title %}Audit Logs — Auditor View{% endblock %}
+{% block page_heading %}Audit Logs{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link active"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;font-size:.73rem;padding:.3rem .7rem">
+    <i class="bi bi-journal-check me-1"></i>Full Audit Trail — Read Only
+  </span>
+  <a href="/auditor/api/export/audit-logs" class="btn btn-sm btn-outline-secondary ms-auto">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </a>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar d-flex gap-2 flex-wrap mb-3">
+  <div class="input-group input-group-sm" style="max-width:220px">
+    <span class="input-group-text"><i class="bi bi-person"></i></span>
+    <input type="text" id="userFilter" class="form-control" placeholder="Filter by user…">
+  </div>
+  <select id="roleFilter" class="form-select form-select-sm" style="max-width:150px">
+    <option value="">All Roles</option>
+    <option>Admin</option><option>Doctor</option><option>Receptionist</option>
+    <option>Patient</option><option>Auditor</option>
+  </select>
+  <select id="actionFilter" class="form-select form-select-sm" style="max-width:160px">
+    <option value="">All Actions</option>
+    <option>CREATE</option><option>UPDATE</option><option>DELETE</option>
+    <option>LOGIN</option><option>LOGOUT</option><option>EXPORT_REPORT</option>
+    <option>VIEW</option>
+  </select>
+  <div>
+    <label class="form-label small mb-1">From</label>
+    <input type="date" id="dateFrom" class="form-control form-control-sm">
+  </div>
+  <div>
+    <label class="form-label small mb-1">To</label>
+    <input type="date" id="dateTo" class="form-control form-control-sm">
+  </div>
+  <button class="btn btn-sm btn-hms-primary align-self-end" id="applyBtn" onclick="loadLogs(1)">
+    <i class="bi bi-funnel me-1"></i>Apply
+  </button>
+  <button class="btn btn-sm btn-outline-secondary align-self-end" onclick="clearFilters()">Reset</button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>Timestamp</th><th>User</th><th>Role</th>
+          <th>Action</th><th>Entity</th><th>Detail</th>
+        </tr></thead>
+        <tbody id="logsBody">
+          <tr><td colspan="6" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="logsCount"></span>
+      <div id="logsPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ACTION_COLORS = {
+  CREATE:'#059669', UPDATE:'#1a73e8', DELETE:'#e11d48',
+  LOGIN:'#7c3aed', LOGOUT:'#6b7280', EXPORT_REPORT:'#f59e0b', VIEW:'#0ea5e9'
+};
+
+function actionBadge(action) {
+  const c = ACTION_COLORS[action] || '#6b7280';
+  return `<span class="badge fw-bold" style="background:${c}18;color:${c};border:1px solid ${c}30">${action||'—'}</span>`;
+}
+
+function clearFilters() {
+  ['userFilter','roleFilter','actionFilter','dateFrom','dateTo'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  loadLogs(1);
+}
+
+async function loadLogs(page=1) {
+  document.getElementById('logsBody').innerHTML =
+    `<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const user   = document.getElementById('userFilter').value;
+  const role   = document.getElementById('roleFilter').value;
+  const action = document.getElementById('actionFilter').value;
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const qs = new URLSearchParams({page});
+  if (user)   qs.append('user', user);
+  if (role)   qs.append('role', role);
+  if (action) qs.append('action', action);
+  if (from)   qs.append('date_from', from);
+  if (to)     qs.append('date_to', to);
+
+  try {
+    const d = await fetch('/auditor/api/audit-logs?' + qs)
+  .then(r => r.json());
+
+    if (!d.items?.length) {
+      document.getElementById('logsBody').innerHTML =
+        `<tr><td colspan="6" class="text-center py-4 text-muted">No audit logs found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('logsBody').innerHTML = d.items.map(l => `
+      <tr>
+        <td><span class="text-nowrap text-muted small">${l.timestamp}</span></td>
+        <td><strong>${l.user_name||'—'}</strong></td>
+        <td><span class="badge bg-secondary-subtle text-secondary fw-bold">${l.role||'—'}</span></td>
+        <td>${actionBadge(l.action)}</td>
+        <td><span class="badge bg-light text-dark border small">${l.entity||'—'}</span></td>
+        <td><span class="text-muted small">${l.detail||'—'}</span></td>
+      </tr>`).join('');
+
+    document.getElementById('logsCount').textContent = `Showing ${d.items.length} of ${d.total} log entries`;
+    renderPagination('logsPagination', page, d.total_pages, loadLogs);
+  } catch(e) { console.error(e); }
+}
+
+loadLogs(1);
+</script>
+{% endblock %}

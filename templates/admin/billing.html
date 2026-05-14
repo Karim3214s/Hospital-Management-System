@@ -1,0 +1,369 @@
+{% extends "common/base.html" %}
+{% block title %}Billing{% endblock %}
+{% block page_heading %}Billing{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link"><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link active"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <input type="text" id="searchInput" class="form-control form-control-sm" style="max-width:220px;"
+    placeholder="Search patient…" />
+  <select id="statusFilter" class="form-select form-select-sm" style="max-width:150px;">
+    <option value="">All Statuses</option>
+    <option>Pending</option>
+    <option>Partial</option>
+    <option>Paid</option>
+  </select>
+  <button class="btn btn-sm btn-hms-primary ms-auto" data-bs-toggle="modal" data-bs-target="#billModal">
+    <i class="bi bi-plus-lg me-1"></i> Manual Bill
+  </button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead>
+          <tr>
+            <th>Bill #</th>
+            <th>Patient</th>
+            <th>Description</th>
+            <th>Total</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="billsBody">
+          <tr>
+            <td colspan="9" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="billsPagination"></div>
+  </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">Record Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="payBillId" />
+        <div class="mb-3 p-3 bg-light rounded" id="billSummaryBox"></div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">Amount (₹) *</label>
+            <input type="number" id="payAmount" class="form-control" min="1" step="0.01" />
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">Payment Method *</label>
+            <select id="payMethod" class="form-select">
+              <option>Cash</option>
+              <option>Card</option>
+              <option>UPI</option>
+              <option>Online</option>
+            </select>
+          </div>
+          <div class="col-12" id="txnGroup">
+            <label class="form-label fw-bold">Transaction ID</label>
+            <input type="text" id="payTxn" class="form-control" placeholder="Required for Card/UPI" />
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">Payment Date *</label>
+            <input type="date" id="payDate" class="form-control" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-hms-primary" id="confirmPayBtn">Confirm Payment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Manual Bill Modal -->
+<div class="modal fade" id="billModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">Create Manual Bill</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-bold">Patient *</label>
+            <select id="mbPatient" class="form-select">
+              <option value="">Select patient…</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">Bill Type *</label>
+            <select id="mbType" class="form-select">
+              <option>Consultation</option>
+              <option>Surgery</option>
+              <option>Admission</option>
+              <option>Lab Test</option>
+              <option>Pharmacy</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">Total Amount (₹) *</label>
+            <input type="number" id="mbAmount" class="form-control" min="0" step="0.01" />
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">Notes</label>
+            <textarea id="mbNotes" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-hms-primary" id="saveBillBtn">Generate Bill</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+
+    let bPage = 1;
+    let currentBillId = null;
+
+    /* ───────── Load Bills ───────── */
+    async function loadBills(page = 1) {
+
+      bPage = page;
+
+      const search = document.getElementById('searchInput').value;
+      const status = document.getElementById('statusFilter').value;
+
+      const body = document.getElementById('billsBody');
+
+      body.innerHTML = `
+    <tr>
+      <td colspan="8" class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </td>
+    </tr>`;
+
+      try {
+
+        const data = await apiRequest(
+          `/api/billing?page=${page}&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`
+        );
+
+        if (!data.items?.length) {
+          body.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center py-4 text-muted">
+            No bills found.
+          </td>
+        </tr>`;
+          return;
+        }
+
+        body.innerHTML = data.items.map(b => `
+      <tr>
+        <td>BL-${String(b.bill_id).padStart(4, '0')}</td>
+        <td>${b.patient_name}</td>
+        <td>${b.description || '-'}</td>
+        <td>₹${(b.total_amount || 0).toFixed(2)}</td>
+        <td>₹${(b.amount_paid || 0).toFixed(2)}</td>
+        <td>₹${(b.balance || 0).toFixed(2)}</td>
+        <td>${statusBadge(b.status)}</td>
+        <td>${b.created_at || '—'}</td>
+        <td>
+          ${parseFloat(b.balance) > 0
+            ? `<button class="btn btn-sm btn-outline-primary"
+                 onclick="openPayment(${b.bill_id})">
+                 Record Payment
+               </button>`
+            : `<span class="text-muted small">—</span>`
+          }
+        </td>
+      </tr>
+    `).join('');
+
+        renderPagination('billsPagination', page, data.total_pages, loadBills);
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    /* ───────── Open Payment ───────── */
+    window.openPayment = async function (billId) {
+
+      currentBillId = billId;
+
+      try {
+
+        const b = await apiRequest(`/api/billing/${billId}`);
+
+        document.getElementById('payBillId').value = billId;
+
+        document.getElementById('billSummaryBox').innerHTML = `
+      <div class="d-flex justify-content-between">
+        <span>Total Amount</span>
+        <strong>₹${b.total_amount.toFixed(2)}</strong>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <span>Amount Paid</span>
+        <strong>₹${b.amount_paid.toFixed(2)}</strong>
+      </div>
+
+      <div class="d-flex justify-content-between text-danger fw-bold">
+        <span>Balance Due</span>
+        <strong>₹${b.balance.toFixed(2)}</strong>
+      </div>`;
+
+        document.getElementById('payAmount').value = b.balance.toFixed(2);
+        document.getElementById('payDate').value =
+          new Date().toISOString().split('T')[0];
+
+        new bootstrap.Modal(
+          document.getElementById('paymentModal')
+        ).show();
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    /* ───────── Payment Method Toggle ───────── */
+    document.getElementById('payMethod')
+      .addEventListener('change', function () {
+
+        document.getElementById('txnGroup').style.display =
+          ['Card', 'UPI', 'Online'].includes(this.value) ? '' : 'none';
+
+      });
+
+    /* ───────── Confirm Payment ───────── */
+    document.getElementById('confirmPayBtn')
+      .addEventListener('click', async () => {
+
+        const body = {
+          bill_id: parseInt(document.getElementById('payBillId').value),
+          amount: parseFloat(document.getElementById('payAmount').value),
+          payment_method: document.getElementById('payMethod').value,
+          transaction_id: document.getElementById('payTxn').value || null,
+          payment_date: document.getElementById('payDate').value,
+        };
+
+        try {
+
+          await apiRequest(
+            '/api/billing/payment',
+            { method: 'POST', body: JSON.stringify(body) }
+          );
+
+          showToast('Payment recorded successfully');
+
+          bootstrap.Modal
+            .getInstance(document.getElementById('paymentModal'))
+            .hide();
+
+          loadBills(bPage);
+
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+    /* ───────── Create Manual Bill ───────── */
+    document.getElementById('saveBillBtn')
+      .addEventListener('click', async () => {
+
+        const body = {
+          patient_id: parseInt(document.getElementById('mbPatient').value),
+          total_amount: parseFloat(document.getElementById('mbAmount').value),
+          description: document.getElementById('mbNotes').value,
+        };
+        try {
+
+          await apiRequest(
+            '/api/billing',
+            { method: 'POST', body: JSON.stringify(body) }
+          );
+
+          showToast('Bill created');
+
+          bootstrap.Modal
+            .getInstance(document.getElementById('billModal'))
+            .hide();
+
+          loadBills(bPage);
+
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+    /* ───────── Load Patient Options ───────── */
+    async function loadPatientOptions() {
+
+      try {
+
+        const data = await apiRequest(
+          '/admin/api/admin/patients?page=1&per_page=200'
+        );
+
+        document.getElementById('mbPatient').innerHTML =
+          '<option value="">Select patient…</option>' +
+          data.items.map(p =>
+            `<option value="${p.patient_Id}">
+          ${p.FName} ${p.LName}
+        </option>`
+          ).join('');
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    /* ───────── Filters ───────── */
+    let ft;
+
+    ['searchInput', 'statusFilter'].forEach(id =>
+      document.getElementById(id).addEventListener('input', () => {
+        clearTimeout(ft);
+        ft = setTimeout(() => loadBills(1), 350);
+      })
+    );
+
+    loadBills(1);
+    loadPatientOptions();
+
+  })();
+</script>
+{% endblock %}

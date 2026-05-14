@@ -1,0 +1,416 @@
+{% extends "common/base.html" %}
+{% block title %}Doctors{% endblock %}
+{% block page_heading %}Doctors{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link active"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link "><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <input type="text" id="searchInput" class="form-control form-control-sm" style="max-width:240px;"
+    placeholder="Search doctor name…" />
+  <select id="deptFilter" class="form-select form-select-sm" style="max-width:200px;">
+    <option value="">All Departments</option>
+  </select>
+  <button class="btn btn-sm btn-hms-primary ms-auto" data-bs-toggle="modal" data-bs-target="#doctorModal"
+    id="addDoctorBtn">
+    <i class="bi bi-plus-lg me-1"></i> Add Doctor
+  </button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Specialisation</th>
+            <th>Contact</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="doctorsBody">
+          <tr>
+            <td colspan="6" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="doctorsPagination"></div>
+  </div>
+</div>
+
+<!-- Doctor Modal -->
+<div class="modal fade" id="doctorModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="doctorModalTitle">Add Doctor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editDoctorId" />
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">First Name *</label>
+            <input type="text" id="dFName" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Last Name *</label>
+            <input type="text" id="dLName" class="form-control" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Gender</label>
+            <select id="dGender" class="form-select">
+              <option value="">Select Gender</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <div class="d-flex align-items-center justify-content-between">
+              <label class="form-label fw-bold">Department *</label>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="addDeptBtn">
+                + Add
+              </button>
+            </div>
+
+            <select id="dDept" class="form-select"></select>
+
+            <!-- Hidden Add Department Box -->
+            <div id="newDeptBox" class="mt-2" style="display:none;">
+              <div class="input-group">
+                <input type="text" id="newDeptName" class="form-control" placeholder="Enter new department" />
+                <button type="button" class="btn btn-success" id="saveDeptBtn">Save</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Contact No</label>
+            <input type="text" id="dContact" class="form-control" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Email</label>
+            <input type="email" id="dEmail" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Specialisation</label>
+            <input type="text" id="dSurgeon" class="form-control" placeholder="e.g. Interventional Cardiology" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Office No</label>
+            <input type="text" id="dOffice" class="form-control" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Experience (Years)</label>
+            <input type="number" id="dExp" class="form-control" />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Dept Head</label>
+            <div class="form-check mt-2">
+              <input type="checkbox" id="dHead" class="form-check-input" />
+              <label class="form-check-label">Department Head</label>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-bold">Notes</label>
+            <textarea id="dNotes" class="form-control"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-hms-primary" id="saveDoctorBtn">Save Doctor</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+
+    // 🔥 Toggle Add Department
+    document.addEventListener("click", function (e) {
+      if (e.target && e.target.id === "addDeptBtn") {
+        const box = document.getElementById("newDeptBox");
+        box.style.display = box.style.display === "none" ? "block" : "none";
+      }
+    });
+
+    // 🔥 Save Department
+    document.addEventListener("click", async function (e) {
+      if (e.target && e.target.id === "saveDeptBtn") {
+
+        const name = document.getElementById("newDeptName").value.trim();
+
+        if (!name) {
+          showToast("Enter department name");
+          return;
+        }
+
+        try {
+          const res = await apiRequest('/admin/api/admin/departments', {
+            method: 'POST',
+            body: JSON.stringify({ dept_name: name })
+          });
+
+          const select = document.getElementById("dDept");
+
+          const option = document.createElement("option");
+          option.value = res.dept_Id;
+          option.textContent = name;
+
+          select.appendChild(option);
+          select.value = option.value;
+
+          document.getElementById("newDeptName").value = "";
+          document.getElementById("newDeptBox").style.display = "none";
+
+          showToast("Department added");
+
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+
+    let doctorsPage = 1;
+
+    /* ───────────── Load Departments ───────────── */
+    async function loadDepts() {
+      try {
+
+        const data = await apiRequest('/admin/api/admin/departments');
+
+        const list = data.items || data;
+
+        const opts = list.map(d =>
+          `<option value="${d.dept_Id}">${d.dept_Name}</option>`
+        ).join('');
+
+        document.getElementById('deptFilter').innerHTML += opts;
+        document.getElementById('dDept').innerHTML = opts;
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    /* ───────────── Load Doctors ───────────── */
+    async function loadDoctors(page = 1) {
+
+      doctorsPage = page;
+
+      const search = document.getElementById('searchInput').value;
+      const dept = document.getElementById('deptFilter').value;
+
+      const body = document.getElementById('doctorsBody');
+
+      body.innerHTML = `
+    <tr>
+      <td colspan="6" class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </td>
+    </tr>`;
+
+      try {
+
+        const data = await apiRequest(
+          `/admin/api/admin/doctors?page=${page}&search=${encodeURIComponent(search)}&dept=${dept}`
+        );
+
+        const rows = data.items || [];
+
+        if (!rows.length) {
+          body.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center py-4 text-muted">
+            No doctors found.
+          </td>
+        </tr>`;
+          return;
+        }
+
+        body.innerHTML = data.items.map(d => `
+      <tr>
+        <td class="text-muted">${d.doct_Id}</td>
+        <td><strong>${d.FName} ${d.LName}</strong></td>
+        <td>${d.dept_Name || '—'}</td>
+        <td>${d.surgeon_Type || '—'}</td>
+        <td>${d.contact_No || '—'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary"
+                  onclick="editDoctor(${d.doct_Id})">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-1"
+          onclick="deleteDoctor(${d.doct_Id})">
+    <i class="bi bi-trash"></i>
+  </button>
+        </td>
+      </tr>
+    `).join('');
+
+        renderPagination('doctorsPagination', page, data.total_pages, loadDoctors);
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    /* ───────────── Edit Doctor ───────────── */
+    window.editDoctor = async function (id) {
+
+      try {
+
+        const d = await apiRequest(`/admin/api/admin/doctors/${id}`);
+
+        document.getElementById('doctorModalTitle').textContent = 'Edit Doctor';
+
+        document.getElementById('editDoctorId').value = d.doct_Id;
+        document.getElementById('dFName').value = d.FName;
+        document.getElementById('dLName').value = d.LName;
+        document.getElementById('dGender').value = d.Gender;
+        document.getElementById('dDept').value = d.dept_Id;
+        document.getElementById('dContact').value = d.contact_No;
+        document.getElementById('dSurgeon').value = d.surgeon_Type;
+        document.getElementById('dOffice').value = d.office_No;
+
+        new bootstrap.Modal(document.getElementById('doctorModal')).show();
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    /* ───────────── Add Doctor ───────────── */
+    document.getElementById('addDoctorBtn').addEventListener('click', () => {
+
+      document.getElementById('doctorModalTitle').textContent = 'Add Doctor';
+
+      document.getElementById('editDoctorId').value = '';
+
+      ['dFName', 'dLName', 'dContact', 'dSurgeon', 'dOffice']
+        .forEach(id => document.getElementById(id).value = '');
+
+    });
+
+
+    /* ───────────── Delete Doctor ───────────── */
+    window.deleteDoctor = async function (id) {
+
+      if (!confirm("Delete this doctor?")) return;
+
+      try {
+
+        await apiRequest(
+          `/admin/api/admin/doctors/${id}`,
+          { method: "DELETE" }
+        );
+
+        showToast("Doctor deleted");
+
+        loadDoctors(doctorsPage);
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    /* ───────────── Save Doctor ───────────── */
+    document.getElementById('saveDoctorBtn')
+      .addEventListener('click', async () => {
+
+        const id = document.getElementById('editDoctorId').value;
+
+        const body = {
+          fname: dFName.value,
+          lname: dLName.value,
+          gender: dGender.value,
+          dept_id: parseInt(dDept.value),
+          contact_no: dContact.value,
+          email: dEmail.value,
+          surgeon_type: dSurgeon.value,
+          office_no: dOffice.value,
+          experience_years: parseInt(dExp.value),
+          is_dept_head: dHead.checked,
+          notes: dNotes.value
+        };
+
+        try {
+
+          if (id) {
+            await apiRequest(`/admin/api/admin/doctors/${id}`, {
+              method: 'PUT',
+              body: JSON.stringify(body)
+            });
+            showToast('Doctor updated');
+
+          } else {
+            await apiRequest(`/admin/api/admin/doctors`, {
+              method: 'POST',
+              body: JSON.stringify(body)
+            });
+            showToast('Doctor added');
+          }
+
+          // RESET FORM HERE
+          document.getElementById('editDoctorId').value = '';
+
+          [
+            'dFName', 'dLName', 'dContact', 'dEmail',
+            'dSurgeon', 'dOffice', 'dExp', 'dNotes'
+          ].forEach(id => document.getElementById(id).value = '');
+
+          dGender.value = '';
+          dDept.selectedIndex = 0;
+          dHead.checked = false;
+
+          bootstrap.Modal
+            .getInstance(document.getElementById('doctorModal'))
+            .hide();
+
+          loadDoctors(doctorsPage);
+
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    /* ───────────── Filters ───────────── */
+    let ft;
+
+    ['searchInput', 'deptFilter'].forEach(id =>
+      document.getElementById(id).addEventListener('input', () => {
+        clearTimeout(ft);
+        ft = setTimeout(() => loadDoctors(1), 350);
+      })
+    );
+
+    loadDepts();
+    loadDoctors(1);
+
+  })();
+</script>
+{% endblock %}

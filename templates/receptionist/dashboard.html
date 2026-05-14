@@ -1,0 +1,246 @@
+{% extends "common/base.html" %}
+{% block title %}Reception Analytics{% endblock %}
+{% block page_heading %}Reception Analytics{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link active"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link "><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .analytics-section-title {
+    font-size:.7rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:1.5px; color:#9ca3af; margin:1.75rem 0 .75rem;
+  }
+  .chart-card { background:#fff; border-radius:12px; box-shadow:var(--hms-card-shadow); border:1px solid #e6ebf2; }
+  .chart-card .chart-header {
+    padding:.9rem 1.1rem; border-bottom:1px solid #f0f4f8;
+    display:flex; align-items:center; gap:.6rem;
+  }
+  .chart-card .chart-header h6 { margin:0; font-weight:800; font-size:.88rem; color:#1c2b4a; }
+  .chart-card .chart-body { padding:1rem 1.1rem 1.1rem; }
+  .kpi-mini { background:#fff; border-radius:12px; box-shadow:var(--hms-card-shadow); padding:1rem 1.2rem; border-left:4px solid #1a73e8; }
+  .kpi-mini .val { font-size:1.5rem; font-weight:800; color:#1c2b4a; }
+  .kpi-mini .lbl { font-size:.72rem; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Today's Summary KPIs ──────────────────────────────────────────── -->
+<div class="row g-3 mb-2">
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#1a73e8">
+      <div class="lbl">Today's Appointments</div>
+      <div class="val" id="sumAppts">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#27ae60">
+      <div class="lbl">Checked In Today</div>
+      <div class="val" id="sumChecked">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#f39c12">
+      <div class="lbl">New Patients Today</div>
+      <div class="val" id="sumNewPt">—</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-mini" style="border-color:#e74c3c">
+      <div class="lbl">Pending Payments</div>
+      <div class="val" id="sumPending">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ APPOINTMENT OVERVIEW ══════════════════ -->
+<p class="analytics-section-title"><i class="bi bi-calendar2-check me-1"></i> Appointment Overview</p>
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-graph-up text-primary"></i><h6>Daily Appointment Volume (Last 30 Days)</h6></div>
+      <div class="chart-body"><canvas id="apptTrendChart" height="110"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-pie-chart-fill text-danger"></i><h6>Appointment Status Distribution</h6></div>
+      <div class="chart-body"><canvas id="statusChart" height="210"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-clock-fill text-warning"></i><h6>Appointments by Time Slot</h6></div>
+      <div class="chart-body"><canvas id="slotChart" height="210"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-person-badge-fill text-success"></i><h6>Today's Queue per Doctor</h6></div>
+      <div class="chart-body"><canvas id="doctorQueueChart" height="110"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PATIENT REGISTRATION ══════════════════ -->
+<p class="analytics-section-title"><i class="bi bi-person-plus-fill me-1"></i> Patient Registrations</p>
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-graph-up-arrow text-primary"></i><h6>New Registrations per Month</h6></div>
+      <div class="chart-body"><canvas id="regChart" height="110"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-gender-ambiguous text-info"></i><h6>Patient Gender Distribution</h6></div>
+      <div class="chart-body"><canvas id="genderChart" height="210"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PAYMENT SUMMARY ════════════════════════ -->
+<p class="analytics-section-title"><i class="bi bi-cash-coin me-1"></i> Payment Summary</p>
+<div class="row g-3 mb-4">
+  <div class="col-lg-5">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-pie-chart-fill text-success"></i><h6>Payment Method Distribution</h6></div>
+      <div class="chart-body"><canvas id="payMethodChart" height="210"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="chart-card h-100">
+      <div class="chart-header"><i class="bi bi-info-circle-fill text-primary"></i><h6>Quick Insight — Busiest Day This Week</h6></div>
+      <div class="chart-body" id="insightPanel">
+        <div class="text-center text-muted py-4"><i class="bi bi-arrow-repeat"></i> Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PALETTE = ['#1a73e8','#27ae60','#f39c12','#e74c3c','#6366f1','#17a589','#e91e63','#ff9800','#00bcd4','#9c27b0'];
+
+function mkChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: type === 'pie' || type === 'doughnut' ? 'bottom' : 'top', labels: { font: { size: 11 } } } },
+      ...opts
+    }
+  });
+}
+
+async function loadAll() {
+
+  // Summary KPIs
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/summary');
+    document.getElementById('sumAppts').textContent = d.today_appointments;
+    document.getElementById('sumChecked').textContent = d.checked_in;
+    document.getElementById('sumNewPt').textContent = d.new_patients_today;
+    document.getElementById('sumPending').textContent = d.pending_payments;
+  } catch(e) {}
+
+  // #11 Daily appointment trend
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/appointment-trend');
+    const trendChart = mkChart('apptTrendChart', 'line', d.labels, [{
+      label: 'Appointments', data: d.counts,
+      borderColor: '#1a73e8', backgroundColor: 'rgba(26,115,232,.1)',
+      tension: 0.4, fill: true, pointRadius: 3
+    }]);
+    // Quick insight: busiest day
+    if (d.counts.length) {
+      const maxIdx = d.counts.indexOf(Math.max(...d.counts));
+      const insightHtml = `
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 py-3">
+          <div style="font-size:2.5rem">📅</div>
+          <div class="fw-800 fs-5 mt-2">${d.labels[maxIdx] || '—'}</div>
+          <div class="text-muted">Busiest day in last 30 days</div>
+          <div class="mt-2 fw-700 text-primary" style="font-size:1.2rem">${d.counts[maxIdx]} appointments</div>
+          <hr class="w-50">
+          <div class="text-muted small">Total last 30 days: <strong>${d.counts.reduce((a,b)=>a+b,0)}</strong></div>
+          <div class="text-muted small">Daily average: <strong>${(d.counts.reduce((a,b)=>a+b,0)/d.counts.length).toFixed(1)}</strong></div>
+        </div>`;
+      document.getElementById('insightPanel').innerHTML = insightHtml;
+    }
+  } catch(e) {}
+
+  // #12 Status distribution
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/appointment-status');
+    const colors = { Scheduled:'#1a73e8', Completed:'#27ae60', Cancelled:'#e74c3c', 'No-show':'#f39c12', 'In-Progress':'#6366f1', 'Checked-In':'#17a589' };
+    mkChart('statusChart', 'doughnut', d.labels, [{
+      data: d.counts, backgroundColor: d.labels.map(l => colors[l] || '#aaa'), borderWidth: 2
+    }]);
+  } catch(e) {}
+
+  // #13 Time slot
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/appointments-by-timeslot');
+    mkChart('slotChart', 'bar', d.labels, [{
+      label: 'Appointments', data: d.counts,
+      backgroundColor: ['#f39c12','#1a73e8','#6366f1','#27ae60'], borderRadius: 8
+    }], { plugins: { legend: { display: false } } });
+  } catch(e) {}
+
+  // #5 Doctor queue today
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/doctor-queue-today');
+    mkChart('doctorQueueChart', 'bar', d.labels, [{
+      label: "Today's Appointments", data: d.counts,
+      backgroundColor: '#17a589', borderRadius: 6
+    }], { plugins: { legend: { display: false } } });
+  } catch(e) {}
+
+  // #3 Registrations per month
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/registrations-per-month');
+    mkChart('regChart', 'line', d.labels, [{
+      label: 'New Patients', data: d.counts,
+      borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.1)',
+      tension: 0.4, fill: true, pointRadius: 4
+    }]);
+  } catch(e) {}
+
+  // #2 Gender
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/patient-gender');
+    mkChart('genderChart', 'pie', d.labels, [{
+      data: d.counts, backgroundColor: ['#1a73e8','#e91e63','#27ae60'], borderWidth: 2
+    }]);
+  } catch(e) {}
+
+  // #23 Payment methods
+  try {
+    const d = await apiRequest('/receptionist/api/analytics/payment-methods');
+    mkChart('payMethodChart', 'doughnut', d.labels, [{
+      data: d.counts, backgroundColor: PALETTE, borderWidth: 2
+    }]);
+  } catch(e) {}
+}
+
+loadAll();
+</script>
+{% endblock %}

@@ -1,0 +1,725 @@
+{% extends "common/base.html" %}
+{% block title %}My Calendar{% endblock %}
+{% block page_heading %}My Calendar{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link ">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link active">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.week-strip{
+  display:flex;
+  gap:.5rem;
+  margin-bottom:1.5rem;
+  min-height:70px;
+}
+
+.week-day{
+  flex:1;
+  text-align:center;
+  padding:.65rem .4rem;
+  border:2px solid #e3e8f0;
+  border-radius:10px;
+  cursor:pointer;
+  background:#fff;
+  transition:all .18s;
+  font-weight:700;
+}
+
+.week-day .wd-name{
+  font-size:.65rem;
+  color:#aaa;
+  display:block;
+  text-transform:uppercase;
+}
+
+.week-day .wd-num{
+  font-size:1.2rem;
+  color:#1c2b4a;
+}
+
+.week-day.active{
+  border-color:var(--hms-primary);
+  background:var(--hms-primary);
+}
+
+.week-day.active .wd-name,
+.week-day.active .wd-num{
+  color:#fff;
+}
+
+.week-day:hover:not(.active){
+  border-color:var(--hms-primary);
+}
+
+.table-responsive{
+  min-height:350px;
+}
+
+#calApptBody{
+  min-height:300px;
+}
+
+.appt-row{
+  cursor:pointer;
+  transition:background .2s ease, transform .1s ease;
+}
+
+.appt-row:hover{
+  background:#f0f7ff !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI -->
+<div class="row g-3 mb-4">
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#e8f0fe;color:#1a73e8;">
+        <i class="bi bi-calendar2"></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Appts Today</div>
+        <div class="stat-value" id="kpiTotal">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fce4ec;color:#e91e63;">
+        <i class="bi bi-activity"></i>
+      </div>
+
+      <div>
+        <div class="stat-label">In-Progress</div>
+        <div class="stat-value" id="kpiInProgress">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fff3cd;color:#f39c12;">
+        <i class="bi bi-person-check"></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Checked-In</div>
+        <div class="stat-value" id="kpiCheckedIn">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#d4edda;color:#27ae60;">
+        <i class="bi bi-check-circle"></i>
+      </div>
+
+      <div>
+        <div class="stat-label">Scheduled</div>
+        <div class="stat-value" id="kpiScheduled">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- WEEK CARD -->
+<div class="hms-card">
+
+  <div class="card-header d-flex align-items-center">
+
+    <i class="bi bi-calendar3 text-primary"></i>
+    <h6 class="ms-2">Week View</h6>
+
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" id="prevWeek">◀</button>
+      <button class="btn btn-sm btn-outline-secondary" id="nextWeek">▶</button>
+    </div>
+
+  </div>
+
+  <div class="card-body">
+
+    <!-- WEEK STRIP -->
+    <div class="week-strip" id="weekStrip"></div>
+
+    <!-- FILTER ROW -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+
+      <h6 class="fw-bold mb-0" id="dayLabel">
+        Today's Appointments
+      </h6>
+
+      <div class="d-flex gap-2 align-items-center">
+
+        <input
+          type="date"
+          id="datePicker"
+          class="form-control form-control-sm"
+          style="width:160px;"
+        >
+
+        <button class="btn btn-sm btn-outline-primary" id="goToday">
+          Today
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-responsive">
+
+      <table class="table hms-table mb-0">
+
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Patient</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody id="calApptBody">
+
+          <tr>
+            <td colspan="5" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="d-flex justify-content-end mt-3" id="calPagination"></div>
+
+  </div>
+</div>
+
+<!-- ADD TREATMENT MODAL -->
+<div class="modal fade" id="treatmentModal" tabindex="-1">
+
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+
+    <div class="modal-content border-0 shadow-lg">
+
+      <div class="modal-header bg-success text-white">
+
+        <h5 class="modal-title">
+          <i class="bi bi-capsule me-2"></i>
+          Add Treatment
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal">
+        </button>
+
+      </div>
+
+      <div class="modal-body">
+
+        <div class="row g-3">
+
+          <input type="hidden" id="tm_appointment_id">
+          <input type="hidden" id="tm_patient_id">
+
+          <div class="col-md-6">
+            <label class="form-label">Patient</label>
+            <input type="text" id="tm_patient_name" class="form-control" readonly>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Visit Date</label>
+            <input type="date" id="tm_visit_date" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Treatment</label>
+
+            <select id="tm_treatment" class="form-select">
+              <option value="">Select Treatment</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Next Visit</label>
+            <input type="date" id="tm_next_visit" class="form-control">
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Diagnosis</label>
+            <textarea id="tm_diagnosis" class="form-control" rows="2"></textarea>
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Prescription</label>
+            <textarea id="tm_prescription" class="form-control" rows="3"></textarea>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Weight</label>
+            <input type="text" id="tm_weight" class="form-control">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Height</label>
+            <input type="text" id="tm_height" class="form-control">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Blood Pressure</label>
+            <input type="text" id="tm_bp" class="form-control">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Temperature</label>
+            <input type="text" id="tm_temp" class="form-control">
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button
+          class="btn btn-outline-secondary"
+          data-bs-dismiss="modal">
+          Cancel
+        </button>
+
+        <button class="btn btn-success" onclick="saveTreatment()">
+          <i class="bi bi-check-circle me-1"></i>
+          Save Treatment
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+let weekOffset = 0;
+let selectedDate = new Date().toISOString().split('T')[0];
+let calPage = 1;
+let treatmentModal;
+
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const datePicker = document.getElementById('datePicker');
+const todayBtn = document.getElementById('goToday');
+
+
+// WEEK STRIP
+function buildWeekStrip(){
+
+  const strip = document.getElementById('weekStrip');
+
+  const today = new Date();
+  const todayIso = today.toISOString().split('T')[0];
+
+  const start = new Date(today);
+  start.setDate(today.getDate() - today.getDay() + weekOffset * 7);
+
+  strip.innerHTML = '';
+
+  for(let i=0;i<7;i++){
+
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+
+    const iso = d.toISOString().split('T')[0];
+
+    const div = document.createElement('div');
+
+    div.className =
+      'week-day' +
+      (iso === selectedDate ? ' active' : '');
+
+    div.dataset.date = iso;
+
+    div.innerHTML = `
+      <span class="wd-name">${DAYS[d.getDay()]}</span>
+      <span class="wd-num">${d.getDate()}</span>
+    `;
+
+    div.addEventListener('click', function(){
+
+      strip.querySelectorAll('.week-day')
+        .forEach(x => x.classList.remove('active'));
+
+      this.classList.add('active');
+
+      selectedDate = this.dataset.date;
+
+      datePicker.value = selectedDate;
+
+      loadCalAppts(1);
+    });
+
+    strip.appendChild(div);
+  }
+}
+
+
+// TODAY BUTTON
+todayBtn.addEventListener('click', () => {
+
+  const today = new Date();
+
+  weekOffset = 0;
+
+  selectedDate = today.toISOString().split('T')[0];
+
+  datePicker.value = selectedDate;
+
+  buildWeekStrip();
+
+  loadCalAppts(1);
+});
+
+
+// DATE PICKER
+datePicker.addEventListener('change', function(){
+
+  selectedDate = this.value;
+
+  const chosen = new Date(selectedDate);
+
+  const startOfSelectedWeek = new Date(chosen);
+  startOfSelectedWeek.setDate(chosen.getDate() - chosen.getDay());
+
+  const today = new Date();
+
+  const startOfCurrentWeek = new Date(today);
+  startOfCurrentWeek.setDate(today.getDate() - today.getDay());
+
+  const diffWeeks = Math.round(
+    (startOfSelectedWeek - startOfCurrentWeek)
+    / (1000 * 60 * 60 * 24 * 7)
+  );
+
+  weekOffset = diffWeeks;
+
+  buildWeekStrip();
+
+  loadCalAppts(1);
+});
+
+
+// KPI
+async function loadKPIs(){
+
+  try{
+
+    const d = await apiRequest('/doctor/api/calendar-stats');
+
+    document.getElementById('kpiTotal').textContent = d.total ?? '—';
+    document.getElementById('kpiInProgress').textContent = d.in_progress ?? '—';
+    document.getElementById('kpiCheckedIn').textContent = d.checked_in ?? '—';
+    document.getElementById('kpiScheduled').textContent = d.scheduled ?? '—';
+
+  }catch(e){
+    console.error(e);
+  }
+}
+
+
+// LOAD APPOINTMENTS
+async function loadCalAppts(page = 1){
+
+  calPage = page;
+
+  const body = document.getElementById('calApptBody');
+
+  body.innerHTML = `
+    <tr>
+      <td colspan="5" class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </td>
+    </tr>`;
+
+  try{
+
+    const data = await apiRequest(
+      `/doctor/api/appointments?date=${selectedDate}&page=${page}`
+    );
+
+    if(!data.items || data.items.length === 0){
+
+      body.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center py-4 text-muted">
+            No appointments for this date.
+          </td>
+        </tr>`;
+
+      return;
+    }
+
+    body.innerHTML = data.items.map(a => {
+
+      const status = (a.appointment_status || '').toLowerCase();
+
+      let action = '—';
+
+      if(['checked-in','in-progress'].includes(status)){
+
+        action = `
+          <button
+            class="btn btn-sm btn-hms-primary"
+            onclick="openTreatmentModal(
+              ${a.appointment_Id},
+              '${a.patient_name || ''}',
+              ${a.patient_Id}
+            )">
+
+            <i class="bi bi-capsule me-1"></i>
+            Add Treatment
+          </button>
+        `;
+      }
+
+      else if(status === 'completed'){
+
+        action = `
+          <a href="/doctor/patient-history?patient_id=${a.patient_Id}"
+             class="btn btn-sm btn-outline-secondary">
+            View →
+          </a>`;
+      }
+
+      return `
+        <tr class="appt-row">
+
+          <td><strong>${a.appointment_time || '—'}</strong></td>
+
+          <td>${a.patient_name || '—'}</td>
+
+          <td>${a.reason || '—'}</td>
+
+          <td>${statusBadge(a.appointment_status)}</td>
+
+          <td>${action}</td>
+
+        </tr>
+      `;
+    }).join('');
+
+    renderPagination(
+      'calPagination',
+      page,
+      data.total_pages,
+      loadCalAppts
+    );
+
+  }catch(e){
+
+    console.error(e);
+
+    body.innerHTML = `
+      <tr>
+        <td colspan="5"
+            class="text-center text-danger py-4">
+
+          Failed to load appointments.
+
+        </td>
+      </tr>`;
+  }
+}
+
+
+// OPEN MODAL
+async function openTreatmentModal(
+  appointmentId,
+  patientName,
+  patientId
+){
+
+  if(!treatmentModal){
+
+    treatmentModal = new bootstrap.Modal(
+      document.getElementById('treatmentModal')
+    );
+  }
+
+  document.getElementById('tm_appointment_id').value = appointmentId;
+  document.getElementById('tm_patient_id').value = patientId;
+  document.getElementById('tm_patient_name').value = patientName;
+
+  document.getElementById('tm_visit_date').value =
+    new Date().toISOString().split('T')[0];
+
+  try{
+
+    const treatments =
+      await fetch('/doctor/api/treatment-catalogue')
+      .then(r => r.json());
+
+    const select = document.getElementById('tm_treatment');
+
+    select.innerHTML =
+      `<option value="">Select Treatment</option>`;
+
+    treatments.forEach(t => {
+
+      select.innerHTML += `
+        <option value="${t.name}">
+          ${t.name} - ₹${t.default_cost}
+        </option>
+      `;
+    });
+
+  }catch(e){
+    console.error(e);
+  }
+
+  treatmentModal.show();
+}
+
+
+// SAVE TREATMENT
+async function saveTreatment(){
+
+  const payload = {
+
+    appointment_id:
+      document.getElementById('tm_appointment_id').value,
+
+    patient_id:
+      document.getElementById('tm_patient_id').value,
+
+    visit_date:
+      document.getElementById('tm_visit_date').value,
+
+    treatment:
+      document.getElementById('tm_treatment').value,
+
+    diagnosis:
+      document.getElementById('tm_diagnosis').value,
+
+    prescription:
+      document.getElementById('tm_prescription').value,
+
+    weight:
+      document.getElementById('tm_weight').value,
+
+    height:
+      document.getElementById('tm_height').value,
+
+    blood_pressure:
+      document.getElementById('tm_bp').value,
+
+    temperature:
+      document.getElementById('tm_temp').value,
+
+    next_visit:
+      document.getElementById('tm_next_visit').value
+  };
+
+  try{
+
+    const res = await fetch('/doctor/api/add-treatment', {
+
+      method:'POST',
+
+      headers:{
+        'Content-Type':'application/json'
+      },
+
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+
+      alert(data.error || 'Failed to save treatment');
+      return;
+    }
+
+    alert(data.message || 'Treatment added successfully');
+
+    treatmentModal.hide();
+
+    loadCalAppts(calPage);
+
+  }catch(e){
+
+    console.error(e);
+
+    alert('Something went wrong');
+  }
+}
+
+
+// WEEK NAVIGATION
+document.getElementById('prevWeek')
+.addEventListener('click', () => {
+
+  weekOffset--;
+  buildWeekStrip();
+});
+
+document.getElementById('nextWeek')
+.addEventListener('click', () => {
+
+  weekOffset++;
+  buildWeekStrip();
+});
+
+
+// INIT
+buildWeekStrip();
+loadKPIs();
+loadCalAppts(1);
+
+datePicker.value = selectedDate;
+
+</script>
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends "common/base.html" %}
+{% block title %}Patients{% endblock %}
+{% block page_heading %}Patients{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link active"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link "><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <div class="input-group input-group-sm" style="max-width:280px;">
+    <span class="input-group-text">
+      <i class="bi bi-search"></i>
+    </span>
+    <input type="text"
+           id="searchInput"
+           class="form-control"
+           placeholder="Search patient..."/>
+  </div>
+
+  <select id="genderFilter"
+          class="form-select form-select-sm"
+          style="max-width:140px;">
+    <option value="">All Genders</option>
+    <option>Male</option>
+    <option>Female</option>
+    <option>Other</option>
+  </select>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Patient</th><th>DOB</th><th>Gender</th>
+          <th>Phone</th><th>Address</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="patientsBody">
+          <tr><td colspan="7" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="patientsPagination"></div>
+  </div>
+</div>
+
+<!-- View Patient Modal -->
+<div class="modal fade" id="patientModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold">Patient Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="patientDetailBody">
+        <div class="text-center py-3"><div class="spinner-border text-primary"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+
+let pPage = 1;
+let searchTimer = null;
+
+/* ───────── Load Patients ───────── */
+async function loadPatients(page = 1) {
+
+  pPage = page;
+
+  const search = document.getElementById('searchInput')?.value || "";
+  const gender = document.getElementById('genderFilter')?.value || "";
+
+  const body = document.getElementById('patientsBody');
+
+  body.innerHTML = `
+    <tr>
+      <td colspan="7" class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </td>
+    </tr>`;
+
+  try {
+
+    const data = await apiRequest(
+      `/admin/api/admin/patients?page=${page}&search=${encodeURIComponent(search)}&gender=${gender}`
+    );
+
+    if (!data.items?.length) {
+      body.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-4 text-muted">
+            No patients found.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    body.innerHTML = data.items.map(p => `
+      <tr>
+        <td class="text-muted">
+          PT-${String(p.patient_Id).padStart(4,'0')}
+        </td>
+
+        <td>
+          <strong>${p.FName} ${p.LName}</strong>
+        </td>
+
+        <td>${p.Date_Of_Birth || '—'}</td>
+        <td>${p.Gender || '—'}</td>
+        <td>${p.contact_No || '—'}</td>
+        <td>${p.pt_Address || '—'}</td>
+
+        <td>
+          <button class="btn btn-sm btn-outline-primary"
+                  onclick="viewPatient(${p.patient_Id})">
+            <i class="bi bi-eye"></i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    renderPagination('patientsPagination', page, data.total_pages, loadPatients);
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+/* ───────── View Patient ───────── */
+window.viewPatient = async function(id) {
+
+  document.getElementById('patientDetailBody').innerHTML =
+    `<div class="text-center py-3">
+       <div class="spinner-border text-primary"></div>
+     </div>`;
+
+  new bootstrap.Modal(
+    document.getElementById('patientModal')
+  ).show();
+
+  try {
+
+    const p = await apiRequest(
+      `/admin/api/admin/patients/${id}`
+    );
+
+    document.getElementById('patientDetailBody').innerHTML = `
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <strong>Full Name:</strong>
+          ${p.FName} ${p.LName}
+        </div>
+
+        <div class="col-md-6">
+          <strong>Gender:</strong>
+          ${p.Gender}
+        </div>
+
+        <div class="col-md-6">
+          <strong>DOB:</strong>
+          ${p.Date_Of_Birth || '—'}
+        </div>
+
+        <div class="col-md-6">
+          <strong>Phone:</strong>
+          ${p.contact_No || '—'}
+        </div>
+
+        <div class="col-12">
+          <strong>Address:</strong>
+          ${p.pt_Address || '—'}
+        </div>
+
+      </div>`;
+
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
+/* ───────── Debounced Search ───────── */
+
+const searchEl = document.getElementById('searchInput');
+const genderEl = document.getElementById('genderFilter');
+
+if (searchEl) {
+  searchEl.addEventListener('input', () => {
+
+    clearTimeout(searchTimer);
+
+    searchTimer = setTimeout(() => {
+      loadPatients(1);
+    }, 600);
+
+  });
+}
+
+if (genderEl) {
+  genderEl.addEventListener('change', () => {
+    loadPatients(1);
+  });
+}
+
+/* ───────── Initial Load ───────── */
+
+loadPatients(1);
+
+})();
+</script>
+{% endblock %}

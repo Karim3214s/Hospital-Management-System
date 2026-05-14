@@ -1,0 +1,270 @@
+{% extends "common/base.html" %}
+{% block title %}Appointments{% endblock %}
+{% block page_heading %}Appointments{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link"><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link active">
+  <i class="bi bi-calendar2-check"></i> Appointments
+</a>
+<a href="/admin/billing" class="nav-link">
+  <i class="bi bi-credit-card-2-front"></i> Billing
+</a>
+<a href="/admin/audit-logs" class="nav-link">
+  <i class="bi bi-journal-text"></i> Audit Logs
+</a>
+{% endblock %}
+
+
+{% block content %}
+<div class="filter-bar d-flex gap-2 align-items-end flex-wrap">
+
+  <div>
+    <label class="form-label small mb-1">From</label>
+    <input type="date" id="dateFrom" class="form-control form-control-sm">
+  </div>
+
+  <div>
+    <label class="form-label small mb-1">To</label>
+    <input type="date" id="dateTo" class="form-control form-control-sm">
+  </div>
+
+  <div>
+    <label class="form-label small mb-1">Status</label>
+    <select id="statusFilter" class="form-select form-select-sm">
+      <option value="">All</option>
+      <option>Scheduled</option>
+      <option>Completed</option>
+      <option>Cancelled</option>
+    </select>
+  </div>
+
+  <div>
+    <button class="btn btn-hms-primary btn-sm" onclick="loadAppts(1)">
+      Filter
+    </button>
+  </div>
+
+</div>
+
+<div class="filter-bar">
+
+  <div class="btn-group btn-group-sm" id="tabGroup">
+    <button class="btn btn-hms-primary" data-tab="Today">Today</button>
+    <button class="btn btn-outline-secondary" data-tab="Upcoming">Upcoming</button>
+    <button class="btn btn-outline-secondary" data-tab="Past">Past</button>
+    <button class="btn btn-outline-secondary" data-tab="Cancelled">Cancelled</button>
+  </div>
+
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0" id="apptContainer">
+
+    <div class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary"></div>
+    </div>
+
+  </div>
+
+  <div class="d-flex justify-content-end p-3" id="apptPagination"></div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+
+  let aPage = 1
+  let aTab = "Today"
+
+  function today() {
+    return new Date().toISOString().split('T')[0]
+  }
+
+  async function loadAppts(page = 1) {
+
+    aPage = page
+
+    const container =
+      document.getElementById('apptContainer')
+
+    container.innerHTML =
+      `<div class="text-center py-4">
+<div class="spinner-border spinner-border-sm text-primary"></div>
+</div>`
+
+    // ---- read filters ----
+    let from =
+      document.getElementById('dateFrom')?.value || ""
+
+    let to =
+      document.getElementById('dateTo')?.value || ""
+
+    let status =
+      document.getElementById('statusFilter')?.value || ""
+
+    const t = today()
+
+    // ---- apply tab if date not selected ----
+    if (!from && !to) {
+
+      if (aTab === "Today") {
+        from = t
+        to = t
+      }
+
+      else if (aTab === "Upcoming") {
+        from = t
+      }
+
+      else if (aTab === "Past") {
+        to = t
+      }
+
+      else if (aTab === "Cancelled") {
+        status = "Cancelled"
+      }
+
+    }
+
+    // ---- API call ----
+    const data =
+      await apiRequest(
+        `/admin/api/admin/appointments?page=${page}
+&date_from=${from}
+&date_to=${to}
+&status=${status}`
+      )
+
+    if (!data.items?.length) {
+      container.innerHTML =
+        `<div class="text-center py-5 text-muted">
+<i class="bi bi-calendar-x" style="font-size:2rem"></i>
+<div class="mt-2">No appointments found</div>
+</div>`
+      return
+    }
+
+    // ---- render ----
+    container.innerHTML =
+      data.items.map(a => `
+
+<div class="border-bottom p-4">
+
+<div class="d-flex justify-content-between">
+
+<div>
+
+<div class="fw-bold">
+${a.appointment_date}
+<span class="text-muted ms-2">
+${a.appointment_time || ''}
+</span>
+</div>
+
+<div class="text-primary fw-bold">
+${a.patient_name || ''}
+</div>
+
+<div class="text-muted">
+${a.doctor_name || ''}
+${a.dept_name ? ' · ' + a.dept_name : ''}
+</div>
+
+</div>
+
+<div class="d-flex flex-column align-items-end gap-2">
+
+${statusBadge(a.appointment_status)}
+
+${a.appointment_status === 'Scheduled' ?
+          `<button class="btn btn-sm btn-outline-danger"
+onclick="cancelAppt(${a.appointment_Id})">
+Cancel
+</button>` : ''}
+
+</div>
+
+</div>
+
+</div>
+
+`).join('')
+
+    // ---- pagination ----
+    renderPagination(
+      'apptPagination',
+      page,
+      data.total_pages,
+      loadAppts
+    )
+
+  }
+
+
+  // cancel
+  async function cancelAppt(id) {
+
+    if (!confirm("Cancel appointment?")) return
+
+    await apiRequest(
+      `/admin/api/admin/appointments/${id}/cancel`,
+      { method: 'POST' }
+    )
+
+    showToast("Appointment cancelled", "warning")
+
+    loadAppts(aPage)
+
+  }
+
+
+  // tab buttons
+  document.querySelectorAll('#tabGroup button')
+    .forEach(btn => {
+
+      btn.addEventListener('click', function () {
+
+        document.querySelectorAll('#tabGroup button')
+          .forEach(b => {
+            b.classList.replace(
+              'btn-hms-primary',
+              'btn-outline-secondary'
+            )
+          })
+
+        this.classList.replace(
+          'btn-outline-secondary',
+          'btn-hms-primary'
+        )
+
+        aTab = this.dataset.tab
+
+        loadAppts(1)
+
+      })
+
+    })
+
+
+  // filter button (if exists)
+  document.getElementById('filterBtn')?.addEventListener(
+    'click',
+    () => loadAppts(1)
+  )
+
+  loadAppts()
+
+</script>
+{% endblock %}

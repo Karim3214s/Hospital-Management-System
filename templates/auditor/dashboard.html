@@ -1,0 +1,1208 @@
+{% extends "common/base.html" %}
+{% block title %}Auditor Analytics Dashboard{% endblock %}
+{% block page_heading %}Analytics Dashboard{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard" class="nav-link active"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users" class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+<a href="/auditor/export" class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── KPI Cards ─────────────────────────────────────────── */
+  .kpi-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 0.7rem 0.9rem;
+    box-shadow: 0 2px 14px rgba(28, 43, 74, .08);
+    display: flex;
+    align-items: center;
+    gap: .95rem;
+    border-left: 4px solid var(--accent, #1a73e8);
+    transition: transform .18s, box-shadow .18s;
+    height: 100%;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 24px rgba(28, 43, 74, .13);
+  }
+
+  .kpi-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  .kpi-label {
+    font-size: .6rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .kpi-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+    margin-top: 1px;
+  }
+
+  .kpi-trend {
+    font-size: .72rem;
+    color: #9ca3af;
+    margin-top: 3px;
+  }
+
+  /* ── Chart Cards ───────────────────────────────────────── */
+  .chart-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 14px rgba(28, 43, 74, .08);
+    overflow: hidden;
+    height: 100%;
+  }
+
+  .ch-header {
+    padding: .9rem 1.25rem;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+  }
+
+  .ch-header h6 {
+    font-size: .88rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+    flex: 1;
+  }
+
+  .ch-badge {
+    font-size: .68rem;
+    font-weight: 700;
+    padding: .2rem .55rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .ch-body {
+    padding: 1.1rem 1.25rem;
+  }
+
+  .ch-body-sm {
+    padding: .6rem .8rem;
+  }
+
+  /* ── Section separators ─────────────────────────────────── */
+  .section-sep {
+    font-size: .7rem;
+    font-weight: 800;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin: .4rem 0 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+
+  .section-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+  }
+
+  /* ── Insight tags ───────────────────────────────────────── */
+  .insight-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #4b5563;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: .2rem .65rem;
+  }
+
+  .insight-tag.up {
+    color: #059669;
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+  }
+
+  .insight-tag.warn {
+    color: #d97706;
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  /* ── Filter Strip ──────────────────────────────────────── */
+  .filter-strip {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a73e8 100%);
+    border-radius: 14px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.6rem;
+    box-shadow: 0 4px 20px rgba(26, 115, 232, .22);
+  }
+
+  .filter-strip label {
+    color: rgba(255, 255, 255, .9);
+    font-size: .8rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .filter-strip input {
+    background: rgba(255, 255, 255, .95);
+    border: none;
+    border-radius: 8px;
+    padding: .4rem .85rem;
+    font-size: .83rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .fs-btn {
+    border: none;
+    border-radius: 8px;
+    padding: .4rem 1.3rem;
+    font-weight: 700;
+    font-size: .83rem;
+    cursor: pointer;
+  }
+
+  .fs-btn-primary {
+    background: #fff;
+    color: #1a73e8;
+  }
+
+  .fs-btn-ghost {
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, .35);
+  }
+
+  /* ── Flag Cards ────────────────────────────────────────── */
+  .flag-card {
+    border-radius: 12px;
+    padding: .9rem 1.1rem;
+    margin-bottom: .9rem;
+  }
+
+  .flag-card:last-child {
+    margin-bottom: 0;
+  }
+
+  .flag-title {
+    font-size: .73rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+
+  .flag-val {
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .flag-sub {
+    font-size: .72rem;
+    color: #9ca3af;
+    margin-top: 2px;
+  }
+
+  /* ── Top Doctors ───────────────────────────────────────── */
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .55rem 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .doc-row:last-child {
+    border: none;
+  }
+
+  .doc-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .72rem;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .doc-name {
+    font-size: .83rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .doc-meta {
+    font-size: .72rem;
+    color: #6b7280;
+  }
+
+  .doc-rev {
+    margin-left: auto;
+    font-size: .85rem;
+    font-weight: 800;
+    color: #059669;
+    white-space: nowrap;
+  }
+
+  .doc-rank {
+    width: 24px;
+    text-align: center;
+    font-size: .78rem;
+    flex-shrink: 0;
+  }
+
+
+  /* ── Disease list ──────────────────────────────────────── */
+  .disease-item {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .42rem 0;
+    border-bottom: 1px solid #f9fafb;
+  }
+
+  .disease-item:last-child {
+    border: none;
+  }
+
+  .dis-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dis-name {
+    font-size: .81rem;
+    font-weight: 600;
+    color: #1f2937;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dis-dept {
+    font-size: .71rem;
+    color: #6b7280;
+    background: #f3f4f6;
+    border-radius: 20px;
+    padding: .1rem .5rem;
+    white-space: nowrap;
+  }
+
+  .dis-bar-wrap {
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  .dis-bar-bg {
+    background: #f3f4f6;
+    border-radius: 4px;
+    height: 5px;
+  }
+
+  .dis-bar-fill {
+    border-radius: 4px;
+    height: 5px;
+  }
+
+  .dis-cnt {
+    font-size: .78rem;
+    font-weight: 800;
+    color: #374151;
+    min-width: 26px;
+    text-align: right;
+  }
+
+  .spinner-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter Strip ──────────────────────────────────────── -->
+<div class="filter-strip">
+  <i class="bi bi-funnel-fill text-white-50"></i>
+  <label>From</label>
+  <input type="date" id="filterFrom">
+  <label>To</label>
+  <input type="date" id="filterTo">
+  <button class="fs-btn fs-btn-primary" onclick="loadAll()"><i class="bi bi-bar-chart-fill me-1"></i>Apply</button>
+  <button class="fs-btn fs-btn-ghost" onclick="clearFilters()"><i class="bi bi-arrow-clockwise me-1"></i>Reset</button>
+  <span class="ms-auto" style="color:rgba(255,255,255,.5);font-size:.78rem">
+    Refreshed: <span id="lastUpdated" style="color:rgba(255,255,255,.85)">—</span>
+  </span>
+</div>
+
+<!-- ── KPI Row ───────────────────────────────────────────── -->
+<div class="row g-2 mb-3">
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#1a73e8">
+      <div class="kpi-icon" style="background:#e8f0fe;color:#1a73e8"><i class="bi bi-calendar2-check"></i></div>
+      <div>
+        <div class="kpi-label">Total Appointments</div>
+        <div class="kpi-value" id="kpiAppts">—</div>
+        <div class="kpi-trend">All time</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#059669">
+      <div class="kpi-icon" style="background:#d1fae5;color:#059669"><i class="bi bi-currency-rupee"></i></div>
+      <div>
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="kpiRevenue">—</div>
+        <div class="kpi-trend">Billed total</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#0ea5e9">
+      <div class="kpi-icon" style="background:#e0f2fe;color:#0ea5e9"><i class="bi bi-cash-stack"></i></div>
+      <div>
+        <div class="kpi-label">Collected</div>
+        <div class="kpi-value" id="kpiCollected">—</div>
+        <div class="kpi-trend" id="kpiCollectionPct">— % collected</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#f59e0b">
+      <div class="kpi-icon" style="background:#fef3c7;color:#f59e0b"><i class="bi bi-receipt"></i></div>
+      <div>
+        <div class="kpi-label">Pending Bills</div>
+        <div class="kpi-value" id="kpiPending">—</div>
+        <div class="kpi-trend">Open balance</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#6366f1">
+      <div class="kpi-icon" style="background:#ede9fe;color:#6366f1"><i class="bi bi-hospital"></i></div>
+      <div>
+        <div class="kpi-label">Active Admissions</div>
+        <div class="kpi-value" id="kpiAdmissions">—</div>
+        <div class="kpi-trend">Rooms + Beds</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+    <div class="kpi-card" style="--accent:#e11d48">
+      <div class="kpi-icon" style="background:#fee2e2;color:#e11d48"><i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <div>
+        <div class="kpi-label">Revenue Gap</div>
+        <div class="kpi-value" id="kpiGap">—</div>
+        <div class="kpi-trend">Billed vs Collected</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     A — APPOINTMENT INTELLIGENCE
+     ═══════════════════════════════════════════ -->
+<div class="section-sep"><i class="bi bi-calendar3"></i>Appointment Intelligence</div>
+
+<!-- Appointment Trend — full width -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-graph-up-arrow text-primary"></i>
+        <h6>Appointment Volume Over Time <span class="text-muted fw-normal small">(36-day window · 3-day buckets)</span>
+        </h6>
+        <span class="ch-badge ms-auto" style="background:#e8f0fe;color:#1a73e8">Line · Volume Trend</span>
+      </div>
+      <div class="ch-body"><canvas id="apptTrendChart" height="55"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Day-of-week  |  Status  |  Doctor Performance -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-calendar-week-fill text-warning"></i>
+        <h6>Peak Booking Days of the Week</h6>
+        <span class="ch-badge ms-auto" style="background:#fef3c7;color:#b45309">Bar · Day Pattern</span>
+      </div>
+      <div class="ch-body"><canvas id="dayOfWeekChart" height="185"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-check2-all text-success"></i>
+        <h6>Appointment Status Split</h6>
+        <span class="ch-badge ms-auto" style="background:#d1fae5;color:#065f46">Doughnut</span>
+      </div>
+      <div class="ch-body" style="display:flex;flex-direction:column;align-items:center">
+        <canvas id="apptStatusChart" style="max-height:175px;max-width:210px"></canvas>
+        <div id="apptStatusInsight" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-12">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-person-badge-fill" style="color:#4f46e5"></i>
+        <h6>Doctor Performance</h6>
+        <span class="ch-badge ms-auto" style="background:#e0e7ff;color:#4f46e5">Top 6</span>
+      </div>
+      <div class="ch-body ch-body-sm"><canvas id="docPerfChart" height="140"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     B — CLINICAL INSIGHTS
+     ═══════════════════════════════════════════ -->
+<div class="section-sep"><i class="bi bi-activity"></i>Clinical Insights</div>
+
+<!-- Disease → Dept chart + detail list -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-virus2 text-danger"></i>
+        <h6>Top Diagnoses — Which Disease Goes to Which Department</h6>
+        <span class="ch-badge ms-auto" style="background:#fee2e2;color:#b91c1c">Horizontal Bar · Clinical</span>
+      </div>
+      <div class="ch-body"><canvas id="diseaseDeptChart" height="210"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="chart-card h-100">
+      <div class="ch-header">
+        <i class="bi bi-list-ol text-danger"></i>
+        <h6>Disease → Department Detail</h6>
+        <span class="ch-badge ms-auto" style="background:#fee2e2;color:#b91c1c">Ranked</span>
+      </div>
+      <div class="ch-body ch-body-sm" id="diseaseDeptList" style="max-height:270px;overflow-y:auto">
+        <div class="spinner-overlay">
+          <div class="spinner-border spinner-border-sm text-danger"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Treatment cost  |  Age distribution -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-capsule-pill text-warning"></i>
+        <h6>Treatment Cost Distribution</h6>
+        <span class="ch-badge ms-auto" style="background:#fef3c7;color:#b45309">Histogram · Cost Bands</span>
+      </div>
+      <div class="ch-body"><canvas id="treatCostChart" height="150"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-bar-chart-steps" style="color:#7c3aed"></i>
+        <h6>Patient Age Group Distribution</h6>
+        <span class="ch-badge ms-auto" style="background:#ede9fe;color:#7c3aed">Histogram · Demographics</span>
+      </div>
+      <div class="ch-body"><canvas id="ageHistChart" height="150"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     C — FINANCIAL INTELLIGENCE
+     ═══════════════════════════════════════════ -->
+<div class="section-sep"><i class="bi bi-currency-rupee"></i>Financial Intelligence</div>
+
+<!-- Revenue trend (wide)  |  Payment mode -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-graph-up text-success"></i>
+        <h6>Daily Revenue Collected <span class="text-muted fw-normal small">(last 7 days)</span></h6>
+        <span class="ch-badge ms-auto" style="background:#d1fae5;color:#065f46">Line · Revenue</span>
+      </div>
+      <div class="ch-body"><canvas id="revTrendChart" height="115"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-credit-card-2-front-fill text-primary"></i>
+        <h6>Payment Mode Mix</h6>
+        <span class="ch-badge ms-auto" style="background:#e8f0fe;color:#1a73e8">Doughnut</span>
+      </div>
+      <div class="ch-body" style="display:flex;flex-direction:column;align-items:center">
+        <canvas id="payModeChart" style="max-height:165px;max-width:200px"></canvas>
+        <div id="payModeInsight" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dept revenue pie  |  Dept revenue table -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-5">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-pie-chart-fill text-danger"></i>
+        <h6>Revenue Share by Department</h6>
+        <span class="ch-badge ms-auto" style="background:#fee2e2;color:#b91c1c">Pie · Split</span>
+      </div>
+      <div class="ch-body" style="display:flex;justify-content:center;align-items:center;min-height:250px">
+        <canvas id="deptRevPieChart" style="max-height:240px"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="chart-card h-100">
+      <div class="ch-header">
+        <i class="bi bi-table text-danger"></i>
+        <h6>Department Revenue Breakdown</h6>
+        <span class="ch-badge ms-auto" style="background:#fee2e2;color:#b91c1c">Detail Table</span>
+      </div>
+      <div class="ch-body ch-body-sm" id="deptRevTable">
+        <div class="spinner-overlay">
+          <div class="spinner-border spinner-border-sm text-danger"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     D — PATIENT INTELLIGENCE
+     ═══════════════════════════════════════════ -->
+<div class="section-sep"><i class="bi bi-people"></i>Patient Intelligence</div>
+
+<!-- Patient registrations  |  Gender + Blood group -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="chart-card">
+      <div class="ch-header">
+        <i class="bi bi-person-plus-fill text-info"></i>
+        <h6>New Patient Registrations <span class="text-muted fw-normal small">(monthly · last 12 months)</span></h6>
+        <span class="ch-badge ms-auto" style="background:#e0f2fe;color:#0369a1">Line · Growth</span>
+      </div>
+      <div class="ch-body"><canvas id="patientRegChart" height="115"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card h-100">
+      <div class="ch-header">
+        <i class="bi bi-gender-ambiguous text-info"></i>
+        <h6>Blood Group</h6>
+        <span class="ch-badge ms-auto" style="background:#e0f2fe;color:#0369a1">Demographics</span>
+      </div>
+      <div class="ch-body ch-body-sm">
+
+        <div class="text-muted mb-1" style="font-size:.7rem;font-weight:700;text-transform:uppercase">Blood Groups</div>
+        <canvas id="bloodGroupChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     E — AUDIT FLAGS + TOP PERFORMERS
+     ═══════════════════════════════════════════ -->
+<div class="section-sep"><i class="bi bi-shield-check"></i>Audit Flags &amp; Top Performers</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="chart-card h-100">
+      <div class="ch-header">
+        <i class="bi bi-shield-exclamation text-danger"></i>
+        <h6>Audit Flags</h6>
+      </div>
+      <div class="ch-body">
+        <div class="flag-card" style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #fbbf24">
+          <div class="flag-title" style="color:#92400e"><i class="bi bi-x-circle me-1"></i>Missing Transactions</div>
+          <div class="flag-val" style="color:#d97706" id="flagMissing">—</div>
+          <div class="flag-sub">Payments with no transaction ID</div>
+        </div>
+        <div class="flag-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);border:1.5px solid #f87171">
+          <div class="flag-title" style="color:#7f1d1d"><i class="bi bi-exclamation-octagon me-1"></i>Revenue Mismatch
+          </div>
+          <div class="flag-val" style="color:#dc2626" id="flagMismatch">—</div>
+          <div class="flag-sub">Billed vs collected gap</div>
+        </div>
+        <div class="flag-card" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1.5px solid #c084fc">
+          <div class="flag-title" style="color:#581c87"><i class="bi bi-cash me-1"></i>High Unpaid Bills</div>
+          <div class="flag-val" style="color:#7c3aed" id="flagHighUnpaid">—</div>
+          <div class="flag-sub">Bills with balance &gt; ₹5,000</div>
+        </div>
+        <div class="mt-3">
+          <div class="d-flex justify-content-between mb-1" style="font-size:.74rem;font-weight:700">
+            <span class="text-muted">Collection Efficiency</span>
+            <span id="collEffPct" style="color:#059669;font-weight:800">—</span>
+          </div>
+          <div style="background:#f3f4f6;border-radius:6px;height:8px;overflow:hidden">
+            <div id="collEffBar"
+              style="height:100%;border-radius:6px;background:linear-gradient(90deg,#059669,#34d399);width:0%;transition:width 1s ease">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="chart-card h-100">
+      <div class="ch-header">
+        <i class="bi bi-trophy-fill text-warning"></i>
+        <h6>Top Doctors by Revenue Generated</h6>
+        <span class="ch-badge ms-auto" style="background:#fef3c7;color:#b45309">Leaderboard</span>
+      </div>
+      <div class="ch-body ch-body-sm" id="topDoctorsList">
+        <div class="spinner-overlay">
+          <div class="spinner-border spinner-border-sm text-warning"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const PALETTE = ['#1a73e8', '#059669', '#f59e0b', '#e11d48', '#7c3aed', '#0ea5e9', '#10b981', '#f97316', '#6366f1', '#14b8a6', '#ec4899', '#84cc16'];
+  const charts = {};
+
+  /* ── helpers ────────────────────────────────────────────── */
+  function fmt(n) {
+    n = parseFloat(n) || 0;
+    if (n >= 1e7) return '₹' + (n / 1e7).toFixed(2) + 'Cr';
+    if (n >= 1e5) return '₹' + (n / 1e5).toFixed(1) + 'L';
+    if (n >= 1e3) return '₹' + (n / 1e3).toFixed(1) + 'K';
+    return '₹' + Math.round(n).toLocaleString();
+  }
+  function pct(a, b) { return b ? ((a / b) * 100).toFixed(1) + '%' : '—'; }
+
+  function mkChart(id, cfg) {
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    const ctx = document.getElementById(id);
+    if (!ctx) return null;
+    charts[id] = new Chart(ctx, cfg);
+    return charts[id];
+  }
+  function clearFilters() {
+    document.getElementById('filterFrom').value = '';
+    document.getElementById('filterTo').value = '';
+    loadAll();
+  }
+  async function loadAll() {
+    const from = document.getElementById('filterFrom').value;
+    const to = document.getElementById('filterTo').value;
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+    await Promise.all([loadDashboard(from, to), loadAnalytics(from, to)]);
+  }
+
+  /* ══════════════════════════════════════════════
+     DASHBOARD API
+     ══════════════════════════════════════════════ */
+  async function loadDashboard(from = '', to = '') {
+    try {
+      const p = new URLSearchParams();
+      if (from) p.append('date_from', from);
+      if (to) p.append('date_to', to);
+      const d = await apiRequest('/auditor/api/dashboard' + ([...p].length ? '?' + p : ''));
+
+      const totalRev = d.total_revenue || 0;
+      const collected = d.collected_revenue || 0;
+      const collPct = totalRev > 0 ? (collected / totalRev * 100).toFixed(1) : 0;
+
+      document.getElementById('kpiAppts').textContent = (d.total_appointments || 0).toLocaleString();
+      document.getElementById('kpiRevenue').textContent = fmt(totalRev);
+      document.getElementById('kpiCollected').textContent = fmt(collected);
+      document.getElementById('kpiCollectionPct').textContent = collPct + '% collected';
+      document.getElementById('kpiPending').textContent = (d.pending_bills || 0).toLocaleString();
+      document.getElementById('kpiAdmissions').textContent = (d.active_admissions || 0).toLocaleString();
+      document.getElementById('kpiGap').textContent = fmt(d.audit_flags?.revenue_mismatch || 0);
+      document.getElementById('flagMissing').textContent = d.audit_flags?.missing_txn ?? '—';
+      document.getElementById('flagMismatch').textContent = fmt(d.audit_flags?.revenue_mismatch || 0);
+      document.getElementById('flagHighUnpaid').textContent = d.audit_flags?.high_unpaid ?? '—';
+      document.getElementById('collEffPct').textContent = collPct + '%';
+      document.getElementById('collEffBar').style.width = Math.min(collPct, 100) + '%';
+
+      /* Revenue Trend */
+      mkChart('revTrendChart', {
+        type: 'line',
+        data: {
+          labels: d.revenue_labels || [],
+          datasets: [{
+            label: 'Collected (₹)', data: d.revenue_data || [],
+            borderColor: '#059669', backgroundColor: 'rgba(5,150,105,.08)',
+            tension: .45, fill: true, pointRadius: 5,
+            pointBackgroundColor: '#fff', pointBorderColor: '#059669', pointBorderWidth: 2, pointHoverRadius: 8
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { callback: v => fmt(v) }, grid: { color: '#f3f4f6' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      /* Dept Revenue Pie — only depts with revenue > 0 */
+      const dLabels = d.dept_labels || [];
+      const dRevs = d.dept_revenue || [];
+      const pairs = dLabels.map((l, i) => [l, dRevs[i] || 0]).filter(p => p[1] > 0);
+      const pieLabels = pairs.map(p => p[0]);
+      const pieData = pairs.map(p => p[1]);
+      const pieTotal = pieData.reduce((a, b) => a + b, 0);
+
+      mkChart('deptRevPieChart', {
+        type: 'pie',
+        data: {
+          labels: pieLabels,
+          datasets: [{ data: pieData, backgroundColor: PALETTE, borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                font: { size: 11 }, padding: 10,
+                generateLabels: chart => {
+                  const ds = chart.data.datasets[0];
+                  return chart.data.labels.map((label, i) => ({
+                    text: label + '  ' + pct(ds.data[i], pieTotal),
+                    fillStyle: ds.backgroundColor[i],
+                    strokeStyle: '#fff', lineWidth: 2, index: i
+                  }));
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ctx.label + ': ' + fmt(ctx.raw) + ' (' + pct(ctx.raw, pieTotal) + ')'
+              }
+            }
+          }
+        }
+      });
+
+      /* Dept revenue table */
+      const tableEl = document.getElementById('deptRevTable');
+      if (pairs.length) {
+        const sorted = pairs.slice().sort((a, b) => b[1] - a[1]);
+        tableEl.innerHTML = `
+        <table class="table table-sm mb-0" style="font-size:.81rem">
+          <thead>
+            <tr style="font-size:.69rem;color:#9ca3af;text-transform:uppercase">
+              <th>Department</th>
+              <th class="text-end">Revenue</th>
+              <th class="text-end">Share</th>
+              <th>Contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map((r, i) => {
+          const share = pieTotal > 0 ? (r[1] / pieTotal * 100).toFixed(1) : 0;
+          const col = PALETTE[i % PALETTE.length];
+          return `<tr>
+                <td>
+                  <span class="d-inline-block me-1" style="width:8px;height:8px;border-radius:50%;background:${col};vertical-align:middle"></span>
+                  <strong>${r[0]}</strong>
+                </td>
+                <td class="text-end fw-bold" style="color:#059669">${fmt(r[1])}</td>
+                <td class="text-end text-muted">${share}%</td>
+                <td style="width:120px">
+                  <div style="background:#f3f4f6;border-radius:4px;height:6px">
+                    <div style="background:${col};width:${share}%;height:6px;border-radius:4px"></div>
+                  </div>
+                </td>
+              </tr>`;
+        }).join('')}
+          </tbody>
+        </table>`;
+      } else {
+        tableEl.innerHTML = '<div class="text-center text-muted py-3 small">No revenue data yet</div>';
+      }
+
+      /* Top Doctors leaderboard */
+      const ul = document.getElementById('topDoctorsList');
+      if (d.top_doctors?.length) {
+        const maxRev = Math.max(...d.top_doctors.map(x => x.revenue));
+        ul.innerHTML = d.top_doctors.map((doc, i) => {
+          const init = doc.name.replace('Dr. ', '').trim().split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+          const bar = maxRev > 0 ? (doc.revenue / maxRev * 100).toFixed(1) : 0;
+          const col = PALETTE[i % PALETTE.length];
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+          return `<div class="doc-row">
+          <div class="doc-rank">${medal}</div>
+          <div class="doc-avatar" style="background:linear-gradient(135deg,${col},${PALETTE[(i + 1) % PALETTE.length]})">${init}</div>
+          <div style="flex:1;min-width:0">
+            <div class="doc-name">${doc.name}</div>
+            <div style="display:flex;align-items:center;gap:.4rem;margin-top:3px">
+              <div style="background:#f3f4f6;border-radius:4px;height:5px;flex:1">
+                <div style="background:${col};width:${bar}%;height:5px;border-radius:4px"></div>
+              </div>
+              <span class="doc-meta">${doc.appointments} appts</span>
+            </div>
+          </div>
+          <div class="doc-rev">${fmt(doc.revenue)}</div>
+        </div>`;
+        }).join('');
+      } else {
+        ul.innerHTML = '<div class="text-muted text-center py-3 small">No data available</div>';
+      }
+
+    } catch (e) { console.error('dashboard err', e); }
+  }
+
+  /* ══════════════════════════════════════════════
+     ANALYTICS API
+     ══════════════════════════════════════════════ */
+  async function loadAnalytics(from = '', to = '') {
+    try {
+      const p = new URLSearchParams();
+      if (from) p.append('date_from', from);
+      if (to) p.append('date_to', to);
+      const d = await apiRequest('/auditor/api/analytics' + ([...p].length ? '?' + p : ''));
+
+      /* Appointment Volume Trend */
+      mkChart('apptTrendChart', {
+        type: 'line',
+        data: {
+          labels: d.appt_trend_labels || [],
+          datasets: [{
+            label: 'Appointments', data: d.appt_trend_data || [],
+            borderColor: '#1a73e8',
+            backgroundColor: ctx => {
+              const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 180);
+              g.addColorStop(0, 'rgba(26,115,232,.18)'); g.addColorStop(1, 'rgba(26,115,232,0)');
+              return g;
+            },
+            tension: .4, fill: true, pointRadius: 4,
+            pointBackgroundColor: '#fff', pointBorderColor: '#1a73e8', pointBorderWidth: 2, pointHoverRadius: 7
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      /* Peak Booking Days */
+      const dowData = d.day_of_week || [0, 0, 0, 0, 0, 0, 0];
+      const maxDow = Math.max(...dowData, 1);
+      mkChart('dayOfWeekChart', {
+        type: 'bar',
+        data: {
+          labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          datasets: [{
+            label: 'Appointments',
+            data: d.day_of_week,
+            backgroundColor: '#1a73e8',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: 'Peak Booking Days'
+            }
+          }
+        }
+      });
+
+      /* Appointment Status Doughnut */
+      const stLabels = d.status_labels || [];
+      const stData = d.status_data || [];
+      const stColors = { Completed: '#22c55e', Scheduled: '#f59e0b', Cancelled: '#ef4444', 'Checked-In': '#6366f1' };
+      const stBg = stLabels.map(l => stColors[l] || '#9ca3af');
+      const stTotal = stData.reduce((a, b) => a + b, 0);
+      mkChart('apptStatusChart', {
+        type: 'doughnut',
+        data: { labels: stLabels, datasets: [{ data: stData, backgroundColor: stBg, borderWidth: 2, borderColor: '#fff' }] },
+        options: {
+          cutout: '62%',
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } },
+            tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + ' (' + pct(c.raw, stTotal) + ')' } }
+          }
+        }
+      });
+      const compIdx = stLabels.indexOf('Completed');
+      if (compIdx >= 0 && stTotal > 0) {
+        const rate = (stData[compIdx] / stTotal * 100).toFixed(1);
+        const cls = parseFloat(rate) >= 70 ? 'up' : 'warn';
+        document.getElementById('apptStatusInsight').innerHTML =
+          `<span class="insight-tag ${cls}"><i class="bi bi-${cls === 'up' ? 'check-circle' : 'exclamation-circle'}"></i>${rate}% completion</span>`;
+      }
+
+      /* Doctor Performance — horizontal bars */
+      mkChart('docPerfChart', {
+        type: 'bar',
+        data: {
+          labels: (d.doc_perf_labels || []).map(l => l.replace('Dr. ', '')),
+          datasets: [
+            {
+              label: 'Total',
+              data: d.doc_perf_total || [],
+              backgroundColor: 'rgba(99,102,241,.6)',
+              borderRadius: 6,
+              barThickness: 12   // 🔥 thicker bars
+            },
+            {
+              label: 'Completed',
+              data: d.doc_perf_done || [],
+              backgroundColor: 'rgba(16,185,129,.9)',
+              borderRadius: 6,
+              barThickness: 12
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: true,
+
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { size: 11 } }
+            }
+          },
+
+          scales: {
+            x: {
+              beginAtZero: true,
+              suggestedMax: Math.max(...(d.doc_perf_total || [100])) + 50, // 🔥 auto scale
+              grid: { color: '#f3f4f6' }
+            },
+            y: {
+              grid: { display: false },
+              ticks: {
+                font: { size: 11 },
+                callback: function (value) {
+                  const label = this.getLabelForValue(value);
+                  return label.length > 12 ? label.substring(0, 12) + '…' : label;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      /* Disease → Department (NEW) */
+      const ddLabels = d.disease_dept_labels || [];
+      const ddDepts = d.disease_dept_depts || [];
+      const ddCounts = d.disease_dept_counts || [];
+      const uniqueDepts = [...new Set(ddDepts)];
+      const deptColorMap = {};
+      uniqueDepts.forEach((dep, i) => { deptColorMap[dep] = PALETTE[i % PALETTE.length]; });
+      const ddBg = ddDepts.map(dep => deptColorMap[dep] || '#9ca3af');
+
+      mkChart('diseaseDeptChart', {
+        type: 'bar',
+        data: {
+          labels: ddLabels,
+          datasets: [{ label: 'Consultations', data: ddCounts, backgroundColor: ddBg, borderRadius: 6 }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.raw} consultations → ${ddDepts[ctx.dataIndex] || '—'}`
+              }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: '#f3f4f6' } },
+            y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+          }
+        }
+      });
+
+      const listEl = document.getElementById('diseaseDeptList');
+      if (ddLabels.length) {
+        const maxCnt = Math.max(...ddCounts, 1);
+        listEl.innerHTML = ddLabels.map((dis, i) => {
+          const barW = (ddCounts[i] / maxCnt * 100).toFixed(1);
+          return `<div class="disease-item">
+          <div class="dis-dot" style="background:${ddBg[i]}"></div>
+          <div class="dis-name">${dis}</div>
+          <div class="dis-dept">${ddDepts[i] || '—'}</div>
+          <div class="dis-bar-wrap">
+            <div class="dis-bar-bg"><div class="dis-bar-fill" style="width:${barW}%;background:${ddBg[i]}"></div></div>
+          </div>
+          <div class="dis-cnt">${ddCounts[i]}</div>
+        </div>`;
+        }).join('');
+      } else {
+        listEl.innerHTML = `<div class="text-center text-muted py-3" style="font-size:.81rem">
+        No diagnosis data yet.<br>
+        <span style="font-size:.7rem">Populate <code>MedicalRecord.diagnosis</code> to enable this view.</span>
+      </div>`;
+      }
+
+      /* Treatment Cost Histogram */
+      mkChart('treatCostChart', {
+        type: 'bar',
+        data: {
+          labels: d.cost_labels,
+          datasets: [{
+            data: d.cost_data
+          }]
+        }
+      });
+
+      /* Age Histogram */
+      mkChart('ageHistChart', {
+        type: 'bar',
+        data: {
+          labels: d.age_labels || ['0–18', '19–35', '36–50', '51–65', '65+'],
+          datasets: [{
+            label: 'Patients', data: d.age_data || [0, 0, 0, 0, 0],
+            backgroundColor: ['#ede9fe', '#ddd6fe', '#c4b5fd', '#a78bfa', '#7c3aed'], borderRadius: 6
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      /* Patient Registrations */
+      mkChart('patientRegChart', {
+        type: 'line',
+        data: {
+          labels: d.reg_labels || [],
+          datasets: [{
+            label: 'New Patients', data: d.reg_data || [],
+            borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.08)',
+            tension: .45, fill: true, pointRadius: 4,
+            pointBackgroundColor: '#fff', pointBorderColor: '#0ea5e9', pointBorderWidth: 2, pointHoverRadius: 7
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      /* Gender Doughnut */
+      const gLabels = d.gender_labels || [];
+      const gData = d.gender_data || [];
+      const gTotal = gData.reduce((a, b) => a + b, 0);
+
+
+      /* Blood Group Bar */
+      const sorted = (d.blood_labels || []).map((label, i) => ({
+        label,
+        value: (d.blood_data || [])[i]
+      })).sort((a, b) => b.value - a.value);
+
+      const labels = sorted.map(x => x.label);
+      const data = sorted.map(x => x.value);
+      mkChart('bloodGroupChart', {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: '#ef4444',
+            barThickness: 16,
+            categoryPercentage: 0.6,
+            barPercentage: 0.8
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: { legend: { display: false } },
+          elements: { bar: { borderSkipped: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            y: { grid: { display: false }, offset: true }
+          }
+        }
+        
+      });
+
+      /* Payment Mode */
+      const pmLabels = d.pay_mode_labels || [];
+      const pmData = d.pay_mode_data || [];
+      const pmTotal = pmData.reduce((a, b) => a + b, 0);
+      mkChart('payModeChart', {
+        type: 'doughnut',
+        data: { labels: pmLabels, datasets: [{ data: pmData, backgroundColor: PALETTE, borderWidth: 2, borderColor: '#fff' }] },
+        options: {
+          cutout: '58%',
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } },
+            tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + ' (' + pct(c.raw, pmTotal) + ')' } }
+          }
+        }
+      });
+      if (pmLabels.length) {
+        const topPm = pmLabels[pmData.indexOf(Math.max(...pmData))];
+        document.getElementById('payModeInsight').innerHTML =
+          `<span class="insight-tag"><i class="bi bi-star-fill text-warning"></i> Top: ${topPm}</span>`;
+      }
+
+    } catch (e) { console.error('analytics err', e); }
+  }
+
+  loadAll();
+</script>
+{% endblock %}

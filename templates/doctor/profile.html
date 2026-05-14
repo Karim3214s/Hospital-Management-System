@@ -1,0 +1,223 @@
+{% extends "common/base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block page_heading %}My Profile{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link ">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link active">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Profile Card -->
+  <div class="col-lg-4">
+    <div class="hms-card text-center p-4">
+      <div class="mx-auto mb-3" style="width:80px;height:80px;border-radius:50%;
+           background:var(--hms-primary);color:#fff;display:flex;align-items:center;
+           justify-content:center;font-size:2rem;font-weight:800;" id="profileInitials">DS</div>
+      <h5 class="fw-bold" id="profileName">—</h5>
+      <p class="text-muted mb-1" id="profileSpeciality">—</p>
+      <span class="badge-status status-active mb-3">Active</span>
+      <div class="text-start" style="font-size:.88rem;">
+        <div class="mb-2"><i class="bi bi-envelope me-2 text-primary"></i><span id="profileEmail">—</span></div>
+        <div class="mb-2"><i class="bi bi-telephone me-2 text-primary"></i><span id="profilePhone">—</span></div>
+        <div class="mb-2"><i class="bi bi-building me-2 text-primary"></i><span id="profileDept">—</span></div>
+        <div><i class="bi bi-door-open me-2 text-primary"></i>Office: <span id="profileOffice">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Profile -->
+  <div class="col-lg-8">
+    <div class="hms-card mb-4">
+      <div class="card-header">
+        <i class="bi bi-pencil text-primary"></i>
+        <h6>Edit Profile</h6>
+      </div>
+      <div class="card-body p-4">
+
+        <div class="text-end mb-3">
+          <button type="button" class="btn btn-primary" onclick="enableEdit()" id="editBtn">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+        </div>
+
+        <form id="profileForm">
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">First Name</label>
+              <input type="text" id="pfFName" class="form-control" disabled />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Last Name</label>
+              <input type="text" id="pfLName" class="form-control" disabled />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Contact No</label>
+              <input type="text" id="pfPhone" class="form-control" disabled />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Office No</label>
+              <input type="text" id="pfOffice" class="form-control" disabled />
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn-hms-primary mt-3 d-none" id="saveBtn">
+            <i class="bi bi-check-circle me-1"></i> Save Changes
+          </button>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- Change Password -->
+    <div class="hms-card">
+      <div class="card-header">
+        <i class="bi bi-lock text-warning"></i>
+        <h6>Change Password</h6>
+      </div>
+      <div class="card-body p-4">
+
+        <form id="pwdForm">
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Current Password</label>
+              <input type="password" id="currPwd" class="form-control" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">New Password</label>
+              <input type="password" id="newPwd" class="form-control" />
+            </div>
+
+          </div>
+
+          <button type="submit" class="btn btn-warning mt-3 text-white fw-bold">
+            <i class="bi bi-lock me-1"></i> Update Password
+          </button>
+        </form>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+async function loadProfile() {
+  try {
+    const d = await apiRequest('/doctor/api/profile');
+
+    document.getElementById('profileInitials').textContent =
+      `${d.FName?.[0] || ''}${d.LName?.[0] || ''}`.toUpperCase();
+
+    document.getElementById('profileName').textContent = `Dr. ${d.FName} ${d.LName}`;
+    document.getElementById('profileSpeciality').textContent = d.surgeon_Type || '—';
+    document.getElementById('profileEmail').textContent = d.email || '—';
+    document.getElementById('profilePhone').textContent = d.contact_No || '—';
+    document.getElementById('profileDept').textContent = d.dept_Name || '—';
+    document.getElementById('profileOffice').textContent = d.office_No || '—';
+
+    pfFName.value = d.FName;
+    pfLName.value = d.LName;
+    pfPhone.value = d.contact_No;
+    pfOffice.value = d.office_No;
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function enableEdit() {
+  document.querySelectorAll('#profileForm input')
+    .forEach(i => i.disabled = false);
+
+  document.getElementById('saveBtn').classList.remove('d-none');
+  document.getElementById('editBtn').classList.add('d-none');
+}
+
+document.getElementById('profileForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  try {
+    await apiRequest('/doctor/api/profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        fname: pfFName.value,
+        lname: pfLName.value,
+        contact_no: pfPhone.value,
+        office_no: pfOffice.value,
+      }),
+    });
+
+    showToast('Profile updated successfully');
+
+    document.querySelectorAll('#profileForm input')
+      .forEach(i => i.disabled = true);
+
+    document.getElementById('saveBtn').classList.add('d-none');
+    document.getElementById('editBtn').classList.remove('d-none');
+
+    loadProfile();
+
+  } catch (err) {
+    console.error(err);
+    showToast("Update failed", "danger");
+  }
+});
+
+document.getElementById('pwdForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  try {
+    await apiRequest('/doctor/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_password: currPwd.value,
+        new_password: newPwd.value,
+      }),
+    });
+
+    showToast('Password changed successfully');
+    document.getElementById('pwdForm').reset();
+
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+loadProfile();
+
+</script>
+{% endblock %}

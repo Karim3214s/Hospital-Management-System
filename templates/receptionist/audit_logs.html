@@ -1,0 +1,96 @@
+{% extends "common/base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block page_heading %}Audit Logs — Reception Activity{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link active"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar flex-wrap">
+  <select id="actionFilter" class="form-select form-select-sm" style="max-width:180px;">
+    <option value="">All Actions</option>
+    <option value="REGISTER_PATIENT">Patient Reg.</option>
+    <option value="CHECK_IN">Check-In</option>
+    <option value="BILL_CREATED">Bill Generated</option>
+    <option value="RECORD_PAYMENT">Payment</option>
+    <option value="BOOK_APPT">Appointment</option>
+  </select>
+  <input type="date" id="dateFrom" class="form-control form-control-sm" style="max-width:150px;"/>
+  <input type="date" id="dateTo"   class="form-control form-control-sm" style="max-width:150px;"/>
+  <button class="btn btn-sm btn-hms-primary" id="applyBtn">Apply</button>
+  <a href="/api/audit-logs/export?role=Receptionist" class="btn btn-sm btn-outline-secondary ms-auto">
+    <i class="bi bi-download me-1"></i> Export CSV
+  </a>
+</div>
+
+<div class="hms-card">
+  <div class="card-header">
+    <i class="bi bi-shield-lock text-primary"></i>
+    <h6>Activity Log — Read-only</h6>
+    <span class="ms-auto badge bg-secondary" id="totalCount">—</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>Time</th><th>Action</th><th>Performed By</th>
+          <th>Patient / Reference</th><th>Details</th>
+        </tr></thead>
+        <tbody id="logsBody">
+          <tr><td colspan="5" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="logsPagination"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let lPage = 1;
+
+async function loadLogs(page = 1) {
+  lPage = page;
+  const action = document.getElementById('actionFilter').value;
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const body   = document.getElementById('logsBody');
+  body.innerHTML = `<tr><td colspan="5" class="text-center py-3">
+    <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+  try {
+    const data = await apiRequest(
+  `/auditor/api/audit-logs?page=${page}&role=Receptionist&action=${encodeURIComponent(action)}&date_from=${from}&date_to=${to}`
+);
+    document.getElementById('totalCount').textContent = `${data.total ?? 0} entries`;
+    if (!data.items?.length) {
+      body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No log entries found.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.items.map(l => `
+      <tr>
+        <td class="text-muted" style="font-size:.8rem;white-space:nowrap">${l.timestamp}</td>
+        <td><span class="badge bg-primary bg-opacity-10 text-primary fw-bold">${l.action}</span></td>
+        <td>${l.user_name}</td>
+        <td>${l.entity || '—'}</td>
+        <td style="font-size:.82rem;color:#555;">${l.detail || '—'}</td>
+      </tr>`).join('');
+    renderPagination('logsPagination', page, data.total_pages, loadLogs);
+  } catch (_) {}
+}
+
+document.getElementById('applyBtn').addEventListener('click', () => loadLogs(1));
+
+loadLogs(1);
+</script>
+{% endblock %}

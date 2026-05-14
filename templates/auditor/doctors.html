@@ -1,0 +1,171 @@
+{% extends "common/base.html" %}
+{% block title %}Doctors — Auditor View{% endblock %}
+{% block page_heading %}Doctors{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link active"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;font-size:.73rem;padding:.3rem .7rem">
+    <i class="bi bi-eye me-1"></i>View & Filter Only — No Edits Permitted
+  </span>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#e8f0fe;color:#1a73e8"><i class="bi bi-person-badge-fill"></i></div>
+      <div><div class="stat-label">Total Doctors</div><div class="stat-value" id="statTotal">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#d1fae5;color:#059669"><i class="bi bi-building"></i></div>
+      <div><div class="stat-label">Departments</div><div class="stat-value" id="statDepts">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fce4ec;color:#e91e63"><i class="bi bi-award-fill"></i></div>
+      <div><div class="stat-label">Dept. Heads</div><div class="stat-value" id="statHeads">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#ede9fe;color:#7c3aed"><i class="bi bi-star-fill"></i></div>
+      <div><div class="stat-label">Avg Experience</div><div class="stat-value" id="statExp">— yrs</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar d-flex gap-2 flex-wrap mb-3">
+  <div class="input-group input-group-sm" style="max-width:260px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" id="searchInput" class="form-control" placeholder="Search doctor name…">
+  </div>
+  <select id="deptFilter" class="form-select form-select-sm" style="max-width:200px">
+    <option value="">All Departments</option>
+  </select>
+  <select id="genderFilter" class="form-select form-select-sm" style="max-width:140px">
+    <option value="">All Genders</option>
+    <option>Male</option><option>Female</option>
+  </select>
+  <button class="btn btn-sm btn-hms-primary" onclick="loadDoctors(1)">
+    <i class="bi bi-search me-1"></i>Filter
+  </button>
+  <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">Reset</button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Department</th><th>Specialisation</th>
+          <th>Gender</th><th>Experience</th><th>Contact</th><th>Dept Head</th>
+        </tr></thead>
+        <tbody id="doctorsBody">
+          <tr><td colspan="8" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="doctorsCount"></span>
+      <div id="doctorsPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadDepts() {
+  try {
+    const depts = await apiRequest('/auditor/api/departments');
+    const sel = document.getElementById('deptFilter');
+    depts.forEach(d => {
+      const o = document.createElement('option');
+      o.value = d.dept_Id; o.textContent = d.dept_Name;
+      sel.appendChild(o);
+    });
+  } catch(e) {}
+}
+
+function clearFilters() {
+  ['searchInput','deptFilter','genderFilter'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  loadDoctors(1);
+}
+
+async function loadDoctors(page=1) {
+  document.getElementById('doctorsBody').innerHTML =
+    `<tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const search = document.getElementById('searchInput').value;
+  const dept   = document.getElementById('deptFilter').value;
+  const gender = document.getElementById('genderFilter').value;
+  const qs = new URLSearchParams({page});
+  if (search) qs.append('search', search);
+  if (dept)   qs.append('dept', dept);
+  if (gender) qs.append('gender', gender);
+
+  try {
+    const d = await apiRequest('/auditor/api/doctors?' + qs);
+
+    if (d.stats) {
+      document.getElementById('statTotal').textContent = d.stats.total  ?? '—';
+      document.getElementById('statDepts').textContent = d.stats.depts  ?? '—';
+      document.getElementById('statHeads').textContent = d.stats.heads  ?? '—';
+      document.getElementById('statExp').textContent   = (d.stats.avg_exp ?? '—') + ' yrs';
+    }
+
+    if (!d.items?.length) {
+      document.getElementById('doctorsBody').innerHTML =
+        `<tr><td colspan="8" class="text-center py-4 text-muted">No doctors found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('doctorsBody').innerHTML = d.items.map(doc => `
+      <tr>
+        <td><span class="text-muted small">DR-${String(doc.id).padStart(3,'0')}</span></td>
+        <td><strong>Dr. ${doc.name}</strong></td>
+        <td><span class="badge bg-primary-subtle text-primary fw-bold">${doc.dept||'—'}</span></td>
+        <td>${doc.specialisation||'—'}</td>
+        <td>${doc.gender||'—'}</td>
+        <td>${doc.experience ? doc.experience + ' yrs' : '—'}</td>
+        <td>${doc.contact||'—'}</td>
+        <td>${doc.is_head ? '<span class="badge bg-success text-white">Head</span>' : '<span class="badge bg-light text-secondary border">—</span>'}</td>
+      </tr>`).join('');
+
+    document.getElementById('doctorsCount').textContent = `Showing ${d.items.length} of ${d.total} records`;
+    renderPagination('doctorsPagination', page, d.total_pages, loadDoctors);
+  } catch(e) { console.error(e); }
+}
+
+let st;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(st); st = setTimeout(() => loadDoctors(1), 400);
+});
+
+loadDepts();
+loadDoctors(1);
+</script>
+{% endblock %}

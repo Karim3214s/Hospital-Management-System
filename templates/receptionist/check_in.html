@@ -1,0 +1,134 @@
+{% extends "common/base.html" %}
+{% block title %}Patient Check-In{% endblock %}
+{% block page_heading %}Patient Check-In{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link active"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="/receptionist/dashboard" class="text-decoration-none text-muted" style="font-size:.88rem;">
+    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+  </a>
+</div>
+
+<!-- Search Bar -->
+<div class="hms-card mb-3">
+  <div class="card-body p-3">
+    <div class="input-group">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="text" id="searchInput" class="form-control"
+             placeholder="Search by patient name, ID or appointment number…"/>
+      <button class="btn btn-hms-primary" id="searchBtn">Search</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status flow legend -->
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+  <span class="badge-status status-scheduled">Scheduled</span>
+  <i class="bi bi-arrow-right text-muted"></i>
+  <span class="badge-status status-checked-in">Checked-In</span>
+  <i class="bi bi-arrow-right text-muted"></i>
+  <span class="badge-status status-in-progress">In-Progress</span>
+  <i class="bi bi-arrow-right text-muted"></i>
+  <span class="badge-status status-completed">Completed</span>
+  <span class="text-muted ms-2" style="font-size:.78rem;">Reception marks: Scheduled → Checked-In</span>
+</div>
+
+<!-- Pending check-in table -->
+<div class="hms-card">
+  <div class="card-header">
+    <i class="bi bi-clock-history text-warning"></i>
+    <h6>Pending Check-In — Today</h6>
+    <span class="ms-auto badge bg-warning text-dark" id="pendingCount">0 waiting</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>Time</th><th>Patient</th><th>Doctor</th><th>Dept</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="pendingBody">
+          <tr><td colspan="6" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="pendingPagination"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let ciPage = 1;
+let searchTerm = '';
+
+async function loadPending(page = 1) {
+  ciPage = page;
+  const body = document.getElementById('pendingBody');
+  body.innerHTML = `<tr><td colspan="6" class="text-center py-3">
+    <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+  try {
+    const data = await apiRequest(`/receptionist/api/receptionist/pending-checkin?page=${page}&search=${encodeURIComponent(searchTerm)}`);
+    document.getElementById('pendingCount').textContent = `${data.total ?? 0} waiting`;
+    if (!data.items?.length) {
+      body.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No pending check-ins.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.items.map(a => `
+      <tr>
+        <td><strong>${a.appointment_time || '—'}</strong></td>
+        <td>${a.patient_name}</td>
+        <td>${a.doctor_name}</td>
+        <td>${a.dept_name || '—'}</td>
+        <td>${statusBadge(a.appointment_status)}</td>
+        <td>
+          <button class="btn btn-sm btn-hms-primary" onclick="doCheckIn(${a.appointment_Id}, this)">
+            <i class="bi bi-check-lg me-1"></i> Check-In ▶
+          </button>
+        </td>
+      </tr>`).join('');
+    renderPagination('pendingPagination', page, data.total_pages, loadPending);
+  } catch (err) {
+  console.error("Pending API Error:", err);
+  document.getElementById('pendingBody').innerHTML =
+    '<tr><td colspan="6" class="text-danger text-center py-3">Error loading data</td></tr>';
+}
+}
+
+async function doCheckIn(id, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  try {
+   await apiRequest(`/receptionist/api/receptionist/check-in/${id}`, { method: 'POST' });
+    showToast('Checked in — doctor notified');
+    loadPending(ciPage);
+  } catch (err) {
+    console.error("Check-In API Error:", err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Check-In ▶';
+  }
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  searchTerm = document.getElementById('searchInput').value.trim();
+  loadPending(1);
+});
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { searchTerm = e.target.value.trim(); loadPending(1); }
+});
+
+loadPending(1);
+</script>
+{% endblock %}

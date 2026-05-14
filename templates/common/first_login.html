@@ -1,0 +1,260 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}First Login - Set Password - HMS{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-lock fa-4x text-warning mb-3"></i>
+                        <h3>Welcome to HMS!</h3>
+                        <p class="text-muted">
+                            For security reasons, please set a new password to continue.
+                        </p>
+                    </div>
+                    
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>First Login Setup</strong><br>
+                        You must change your temporary password before accessing the system.
+                    </div>
+                    
+                    {% if error %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST" id="firstLoginForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-key"></i> New Password
+                            </label>
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       name="password" 
+                                       id="password"
+                                       required 
+                                       minlength="8" 
+                                       placeholder="At least 8 characters"
+                                       autocomplete="new-password">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        onclick="togglePassword('password')">
+                                    <i class="fas fa-eye" id="password-icon"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-check-circle text-muted"></i> At least 8 characters
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-check-double"></i> Confirm Password
+                            </label>
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       name="confirm_password" 
+                                       id="confirm_password"
+                                       required 
+                                       minlength="8"
+                                       placeholder="Re-type password"
+                                       autocomplete="new-password">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        onclick="togglePassword('confirm_password')">
+                                    <i class="fas fa-eye" id="confirm_password-icon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Password requirements checklist -->
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <small class="fw-bold">Password Requirements:</small>
+                                <ul class="mb-0 mt-2" style="font-size: 0.875rem;">
+                                    <li id="req-length" class="text-muted">
+                                        <i class="fas fa-circle"></i> At least 8 characters
+                                    </li>
+                                    <li id="req-letter" class="text-muted">
+                                        <i class="fas fa-circle"></i> Contains letters
+                                    </li>
+                                    <li id="req-number" class="text-muted">
+                                        <i class="fas fa-circle"></i> Contains numbers (recommended)
+                                    </li>
+                                    <li id="req-match" class="text-muted">
+                                        <i class="fas fa-circle"></i> Passwords match
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-shield-alt"></i>
+                            <small>
+                                <strong>Security Tip:</strong> 
+                                Choose a strong password that you haven't used elsewhere.
+                                Don't share your password with anyone.
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="submitBtn">
+                            <i class="fas fa-unlock"></i> Set Password & Continue
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const passwordInput = document.getElementById('password');
+const confirmInput = document.getElementById('confirm_password');
+const form = document.getElementById('firstLoginForm');
+
+// Toggle password visibility
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(inputId + '-icon');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+// Check password requirements
+function updateRequirements() {
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    
+    // Length check
+    const lengthReq = document.getElementById('req-length');
+    if (password.length >= 8) {
+        lengthReq.classList.remove('text-muted');
+        lengthReq.classList.add('text-success');
+        lengthReq.innerHTML = '<i class="fas fa-check-circle"></i> At least 8 characters';
+    } else {
+        lengthReq.classList.remove('text-success');
+        lengthReq.classList.add('text-muted');
+        lengthReq.innerHTML = '<i class="fas fa-circle"></i> At least 8 characters';
+    }
+    
+    // Letter check
+    const letterReq = document.getElementById('req-letter');
+    if (/[a-zA-Z]/.test(password)) {
+        letterReq.classList.remove('text-muted');
+        letterReq.classList.add('text-success');
+        letterReq.innerHTML = '<i class="fas fa-check-circle"></i> Contains letters';
+    } else {
+        letterReq.classList.remove('text-success');
+        letterReq.classList.add('text-muted');
+        letterReq.innerHTML = '<i class="fas fa-circle"></i> Contains letters';
+    }
+    
+    // Number check
+    const numberReq = document.getElementById('req-number');
+    if (/\d/.test(password)) {
+        numberReq.classList.remove('text-muted');
+        numberReq.classList.add('text-success');
+        numberReq.innerHTML = '<i class="fas fa-check-circle"></i> Contains numbers (recommended)';
+    } else {
+        numberReq.classList.remove('text-success');
+        numberReq.classList.add('text-muted');
+        numberReq.innerHTML = '<i class="fas fa-circle"></i> Contains numbers (recommended)';
+    }
+    
+    // Match check
+    const matchReq = document.getElementById('req-match');
+    if (password && confirm && password === confirm) {
+        matchReq.classList.remove('text-muted', 'text-danger');
+        matchReq.classList.add('text-success');
+        matchReq.innerHTML = '<i class="fas fa-check-circle"></i> Passwords match';
+        confirmInput.classList.remove('is-invalid');
+        confirmInput.classList.add('is-valid');
+    } else if (confirm) {
+        matchReq.classList.remove('text-muted', 'text-success');
+        matchReq.classList.add('text-danger');
+        matchReq.innerHTML = '<i class="fas fa-times-circle"></i> Passwords do not match';
+        confirmInput.classList.remove('is-valid');
+        confirmInput.classList.add('is-invalid');
+    } else {
+        matchReq.classList.remove('text-success', 'text-danger');
+        matchReq.classList.add('text-muted');
+        matchReq.innerHTML = '<i class="fas fa-circle"></i> Passwords match';
+        confirmInput.classList.remove('is-invalid', 'is-valid');
+    }
+}
+
+passwordInput.addEventListener('input', updateRequirements);
+confirmInput.addEventListener('input', updateRequirements);
+
+// Form validation
+form.addEventListener('submit', function(e) {
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    
+    if (password !== confirm) {
+        e.preventDefault();
+        confirmInput.classList.add('is-invalid');
+        alert('Passwords do not match!');
+        return false;
+    }
+    
+    if (password.length < 8) {
+        e.preventDefault();
+        passwordInput.classList.add('is-invalid');
+        alert('Password must be at least 8 characters long!');
+        return false;
+    }
+    
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting Password...';
+});
+</script>
+
+<style>
+.card {
+    border: none;
+    border-radius: 15px;
+}
+
+.form-control:focus {
+    border-color: #f6c23e;
+    box-shadow: 0 0 0 0.2rem rgba(246, 194, 62, 0.25);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #65398f 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.is-valid {
+    border-color: #28a745 !important;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+</style>
+{% endblock %}

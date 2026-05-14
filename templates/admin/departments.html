@@ -1,0 +1,244 @@
+{% extends "common/base.html" %}
+{% block title %}Departments{% endblock %}
+{% block page_heading %}Departments{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link active"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link"><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <input type="text" id="searchInput" class="form-control form-control-sm" style="max-width:260px;" placeholder="Search department…"/>
+  <button class="btn btn-sm btn-hms-primary ms-auto" id="addDeptBtn" data-bs-toggle="modal" data-bs-target="#deptModal">
+    <i class="bi bi-plus-lg me-1"></i> Add Department
+  </button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Department Name</th><th># Doctors</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="deptsBody">
+          <tr><td colspan="4" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="deptsPagination"></div>
+  </div>
+</div>
+
+<!-- Dept Modal -->
+<div class="modal fade" id="deptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="deptModalTitle">Add Department</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editDeptId"/>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Department Name *</label>
+          <input type="text" id="deptName" class="form-control" placeholder="e.g. Cardiology"/>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-hms-primary" id="saveDeptBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+
+let dPage = 1;
+
+/* ───────── Load Departments ───────── */
+async function loadDepts(page = 1) {
+
+  dPage = page;
+
+  const search = document.getElementById('searchInput').value;
+  const body   = document.getElementById('deptsBody');
+
+  body.innerHTML = `
+    <tr>
+      <td colspan="4" class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </td>
+    </tr>`;
+
+  try {
+
+    const data = await apiRequest(
+      `/admin/api/admin/departments?page=${page}&search=${encodeURIComponent(search)}`
+    );
+
+    if (!data.items?.length) {
+      body.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center py-4 text-muted">
+            No departments found.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    body.innerHTML = data.items.map(d => `
+      <tr>
+        <td class="text-muted">${d.dept_Id}</td>
+
+        <td>
+          <strong>${d.dept_Name}</strong>
+        </td>
+
+        <td>
+          <span class="badge bg-primary bg-opacity-10 text-primary fw-bold">
+            ${d.doctor_count ?? 0} doctors
+          </span>
+        </td>
+
+        <td>
+          <button class="btn btn-sm btn-outline-primary me-1"
+                  onclick="editDept(${d.dept_Id},'${d.dept_Name}')">
+            <i class="bi bi-pencil"></i>
+          </button>
+
+          <button class="btn btn-sm btn-outline-danger"
+                  onclick="deleteDept(${d.dept_Id})">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    renderPagination('deptsPagination', page, data.total_pages, loadDepts);
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+/* ───────── Edit ───────── */
+window.editDept = function(id, name) {
+
+  document.getElementById('deptModalTitle').textContent = 'Edit Department';
+
+  document.getElementById('editDeptId').value = id;
+  document.getElementById('deptName').value   = name;
+
+  new bootstrap.Modal(
+    document.getElementById('deptModal')
+  ).show();
+};
+
+/* ───────── Add ───────── */
+document.getElementById('addDeptBtn').addEventListener('click', () => {
+
+  document.getElementById('deptModalTitle').textContent = 'Add Department';
+
+  document.getElementById('editDeptId').value = '';
+  document.getElementById('deptName').value   = '';
+});
+
+/* ───────── Save ───────── */
+document.getElementById('saveDeptBtn')
+.addEventListener('click', async () => {
+
+  const id   = document.getElementById('editDeptId').value;
+  const name = document.getElementById('deptName').value.trim();
+
+  if (!name) {
+    showToast('Department name is required', 'danger');
+    return;
+  }
+
+  try {
+
+    if (id) {
+
+      await apiRequest(
+        `/admin/api/admin/departments/${id}`,
+        { method:'PUT', body:JSON.stringify({ dept_Name:name }) }
+      );
+
+      showToast('Department updated');
+
+    } else {
+
+      await apiRequest(
+        `/admin/api/admin/departments`,
+        { method:'POST', body:JSON.stringify({ dept_Name:name }) }
+      );
+
+      showToast('Department added');
+    }
+
+    bootstrap.Modal
+      .getInstance(document.getElementById('deptModal'))
+      .hide();
+
+    loadDepts(dPage);
+
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+/* ───────── Delete ───────── */
+window.deleteDept = async function(id) {
+
+  if (!confirm('Delete this department?')) return;
+
+  try {
+
+    await apiRequest(
+      `/admin/api/admin/departments/${id}`,
+      { method:'DELETE' }
+    );
+
+    showToast('Department deleted','warning');
+
+    loadDepts(dPage);
+
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+/* ───────── Search ───────── */
+let ft;
+
+document.getElementById('searchInput')
+.addEventListener('input', () => {
+
+  clearTimeout(ft);
+
+  ft = setTimeout(() => loadDepts(1), 350);
+
+});
+
+loadDepts(1);
+
+})();
+</script>
+{% endblock %}

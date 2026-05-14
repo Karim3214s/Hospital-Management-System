@@ -1,0 +1,153 @@
+{% extends "common/base.html" %}
+{% block title %}Users — Auditor View{% endblock %}
+{% block page_heading %}Users & Roles{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link active"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;font-size:.73rem;padding:.3rem .7rem">
+    <i class="bi bi-eye me-1"></i>View & Filter Only — No Edits Permitted
+  </span>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-3" id="roleStatsRow">
+  <!-- Filled dynamically -->
+</div>
+
+<!-- Filters -->
+<div class="filter-bar d-flex gap-2 flex-wrap mb-3">
+  <div class="input-group input-group-sm" style="max-width:260px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" id="searchInput" class="form-control" placeholder="Search name or email…">
+  </div>
+  <select id="roleFilter" class="form-select form-select-sm" style="max-width:160px">
+    <option value="">All Roles</option>
+    <option>Admin</option><option>Doctor</option><option>Receptionist</option>
+    <option>Patient</option><option>Auditor</option><option>Nurse</option>
+  </select>
+  <select id="activeFilter" class="form-select form-select-sm" style="max-width:140px">
+    <option value="">All Status</option>
+    <option value="1">Active</option>
+    <option value="0">Inactive</option>
+  </select>
+  <button class="btn btn-sm btn-hms-primary" onclick="loadUsers(1)">
+    <i class="bi bi-search me-1"></i>Filter
+  </button>
+  <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">Reset</button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th>
+        </tr></thead>
+        <tbody id="usersBody">
+          <tr><td colspan="5" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="usersCount"></span>
+      <div id="usersPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ROLE_COLORS = {
+  Admin:'#e11d48', Doctor:'#1a73e8', Receptionist:'#059669',
+  Patient:'#7c3aed', Auditor:'#f59e0b', Nurse:'#0ea5e9'
+};
+
+function roleBadge(role) {
+  const c = ROLE_COLORS[role] || '#6b7280';
+  return `<span class="badge fw-bold" style="background:${c}20;color:${c};border:1px solid ${c}40">${role||'—'}</span>`;
+}
+
+function clearFilters() {
+  ['searchInput','roleFilter','activeFilter'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  loadUsers(1);
+}
+
+async function loadUsers(page=1) {
+  document.getElementById('usersBody').innerHTML =
+    `<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const search = document.getElementById('searchInput').value;
+  const role   = document.getElementById('roleFilter').value;
+  const active = document.getElementById('activeFilter').value;
+  const qs = new URLSearchParams({page});
+  if (search) qs.append('search', search);
+  if (role)   qs.append('role', role);
+  if (active !== '') qs.append('active', active);
+
+  try {
+    const d = await apiRequest('/auditor/api/users?' + qs);
+
+    // Role stats cards
+    if (d.role_counts && page === 1 && !search && !role) {
+      const row = document.getElementById('roleStatsRow');
+      row.innerHTML = Object.entries(d.role_counts).map(([r, cnt]) => {
+        const c = ROLE_COLORS[r] || '#6b7280';
+        return `<div class="col-md-2 col-4">
+          <div class="hms-card p-3 text-center" style="border-top:3px solid ${c}">
+            <div style="color:${c};font-size:1.5rem;font-weight:800">${cnt}</div>
+            <div class="text-muted small fw-bold">${r}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    if (!d.items?.length) {
+      document.getElementById('usersBody').innerHTML =
+        `<tr><td colspan="5" class="text-center py-4 text-muted">No users found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('usersBody').innerHTML = d.items.map(u => `
+      <tr>
+        <td><span class="text-muted small">${u.id}</span></td>
+        <td><strong>${u.name||'—'}</strong></td>
+        <td>${u.email||'—'}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td>${u.is_active
+          ? '<span class="badge bg-success-subtle text-success fw-bold"><i class="bi bi-circle-fill me-1" style="font-size:.5rem"></i>Active</span>'
+          : '<span class="badge bg-secondary-subtle text-secondary fw-bold">Inactive</span>'}</td>
+      </tr>`).join('');
+
+    document.getElementById('usersCount').textContent = `Showing ${d.items.length} of ${d.total} records`;
+    renderPagination('usersPagination', page, d.total_pages, loadUsers);
+  } catch(e) { console.error(e); }
+}
+
+let st;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(st); st = setTimeout(() => loadUsers(1), 400);
+});
+
+loadUsers(1);
+</script>
+{% endblock %}

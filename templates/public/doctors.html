@@ -1,0 +1,77 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Our Doctors{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block content %}
+
+<section class="page-title bg-1">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="block text-center">
+          <span class="text-white">Our Medical Team</span>
+          <h1 class="text-capitalize mb-5 text-lg">Meet Our Specialist Doctors</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section doctors">
+  <div class="container">
+    <div class="row">
+
+      {% set team = [
+        ('1.jpg', 'Dr. Ankit Sharma',   'Interventional Cardiologist',    'Cardiology',    '12'),
+        ('2.jpg', 'Dr. Priya Mehta',    'Neurologist, Stroke Specialist', 'Neurology',     '10'),
+        ('3.jpg', 'Dr. Ravi Rao',       'Orthopaedic Surgeon',            'Orthopaedics',  '15'),
+        ('4.jpg', 'Dr. Sunita Singh',   'Gynaecologist & Obstetrician',   'Gynaecology',   '14'),
+        ('test-thumb1.jpg', 'Dr. Arun Kumar',   'General Physician',              'General Medicine', '8'),
+        ('test-thumb2.jpg', 'Dr. Kavita Reddy', 'Paediatric Neurologist',         'Neurology',        '9'),
+        ('test-thumb3.jpg', 'Dr. Sameer Joshi', 'Spine Surgeon',                  'Orthopaedics',     '11'),
+        ('test-thumb4.jpg', 'Dr. Meena Rao',    'Reproductive Medicine',          'Gynaecology',      '13'),
+      ] %}
+
+      {% for img, name, role, dept, exp in team %}
+      <div class="col-lg-3 col-md-6 col-sm-6">
+        <div class="team-block mb-5">
+          <img src="{{ url_for('static', filename='images/team/' ~ img) }}" alt="{{ name }}" class="img-fluid w-100">
+          <div class="content">
+            <h4 class="mt-4 mb-0">{{ name }}</h4>
+            <p>{{ role }}</p>
+            <p style="font-size:.78rem;color:#1a73e8;margin-bottom:.5rem;">
+              {{ dept }} &middot; {{ exp }} yrs exp
+            </p>
+            <a href="{{ url_for('public.appointment') }}" class="btn btn-main btn-round-full btn-sm">
+              Book Appointment
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta-page gray-bg">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 text-center">
+        <h2>Can't find the right specialist?</h2>
+        <p class="mt-3 mb-4">Call our patient helpline and our coordinators will match you with the best doctor for your condition — free of charge.</p>
+        <a href="{{ url_for('public.appointment') }}" class="btn btn-main-2 btn-round-full btn-icon mr-3">
+          Book Appointment <i class="icofont-simple-right ml-2"></i>
+        </a>
+        <a href="{{ url_for('public.contact') }}" class="btn btn-outline-primary btn-round-full">
+          Contact Us
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "public/base_public.html" %}
+{% block title %}Appointment Confirmed{% endblock %}
+
+{% block content %}
+<section class="page-title bg-1">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="block text-center">
+          <span class="text-white">Marvel Hospitals</span>
+          <h1 class="text-capitalize mb-5 text-lg">Appointment Confirmed</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding:60px 0;">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+
+        <div style="background:#fff;border-radius:20px;padding:2.5rem;box-shadow:0 8px 40px rgba(0,0,0,.10);text-align:center;">
+
+          <!-- Success Icon -->
+          <div style="width:80px;height:80px;background:linear-gradient(135deg,#27ae60,#2ecc71);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;">
+            <i class="icofont-check-alt" style="font-size:2.5rem;color:#fff;"></i>
+          </div>
+
+          <h3 style="font-weight:800;color:#1a1a2e;margin-bottom:.5rem;">Booking Successful!</h3>
+          <p class="text-muted" style="font-size:.95rem;">Your appointment has been received and is pending confirmation.</p>
+
+          <!-- OPID Card -->
+          {% if opid %}
+          <div style="background:linear-gradient(135deg,#1a73e8,#0d47a1);border-radius:14px;padding:1.5rem;margin:1.5rem 0;color:#fff;">
+            <div style="font-size:.78rem;opacity:.8;text-transform:uppercase;letter-spacing:2px;margin-bottom:.4rem;">Your Appointment ID (OPID)</div>
+            <div style="font-size:2.8rem;font-weight:900;letter-spacing:4px;">#{{ opid }}</div>
+            <div style="font-size:.8rem;opacity:.85;margin-top:.4rem;">Please remember this number for all follow-ups</div>
+          </div>
+          {% endif %}
+
+          <!-- Booking Details -->
+          <div style="background:#f8f9fa;border-radius:10px;padding:1rem;text-align:left;margin-bottom:1.5rem;">
+            {% if patient_name %}
+            <div class="d-flex justify-content-between py-1 border-bottom">
+              <span class="text-muted" style="font-size:.88rem;">Patient</span>
+              <span style="font-weight:700;">{{ patient_name }}</span>
+            </div>
+            {% endif %}
+            {% if appt_date %}
+            <div class="d-flex justify-content-between py-1 border-bottom">
+              <span class="text-muted" style="font-size:.88rem;">Date</span>
+              <span style="font-weight:700;">{{ appt_date }}</span>
+            </div>
+            {% endif %}
+            <div class="d-flex justify-content-between py-1">
+              <span class="text-muted" style="font-size:.88rem;">Status</span>
+              <span style="font-weight:700;color:#f39c12;">Booked — Pending Check-In</span>
+            </div>
+          </div>
+
+          <!-- Info Note -->
+          <div style="background:#fffbf0;border:1px solid #ffe082;border-radius:10px;padding:1rem;margin-bottom:1.5rem;text-align:left;">
+            <p style="margin:0;font-size:.83rem;color:#7a6000;">
+              <i class="icofont-info-circle" style="color:#f39c12;margin-right:.4rem;"></i>
+              <strong>What's next?</strong> Visit the hospital reception desk and quote your OPID
+              <strong>{% if opid %}#{{ opid }}{% endif %}</strong>.
+              The receptionist will check you in and direct you to the doctor.
+              <strong>No payment required at this stage.</strong>
+            </p>
+          </div>
+
+          <a href="/appointment" class="btn btn-main btn-round-full" style="margin-right:.5rem;">
+            Book Another
+          </a>
+          <a href="/" class="btn btn-outline-primary btn-round-full">
+            Back to Home
+          </a>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

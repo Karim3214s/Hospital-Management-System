@@ -1,0 +1,147 @@
+{% extends "common/base.html" %}
+{% block title %}Export Reports{% endblock %}
+{% block page_heading %}Export Reports{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link "><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link active"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-7">
+    <div class="hms-card">
+      <div class="card-header">
+        <i class="bi bi-cloud-download text-primary"></i>
+        <h6>Generate &amp; Download Report</h6>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-bold">Report Type <span class="text-danger">*</span></label>
+            <select id="reportType" class="form-select">
+              <option value="appointments">Appointment Summary</option>
+              <option value="billing">Billing Summary</option>
+              <option value="patients">Patient List</option>
+              <option value="doctor_performance">Doctor Performance</option>
+              <option value="audit_log">Audit Log</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Date From <span class="text-danger">*</span></label>
+            <input type="date" id="dateFrom" class="form-control"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Date To <span class="text-danger">*</span></label>
+            <input type="date" id="dateTo" class="form-control"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Department (optional)</label>
+            <select id="deptFilter" class="form-select">
+              <option value="">All Departments</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Format <span class="text-danger">*</span></label>
+            <select id="formatType" class="form-select">
+              <option value="csv">CSV</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-hms-primary mt-4 px-4" id="downloadBtn">
+          <span id="dlSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+          <i class="bi bi-download me-1"></i> Download Report
+        </button>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="row g-3 mt-2">
+      <div class="col-md-6">
+        <div class="hms-card p-3">
+          <div class="d-flex gap-2 mb-1"><i class="bi bi-list-check text-primary fs-5"></i><strong>Report Types</strong></div>
+          <p class="text-muted mb-0" style="font-size:.82rem;">Appointment Summary · Billing Summary · Patient List · Doctor Performance · Audit Log</p>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="hms-card p-3">
+          <div class="d-flex gap-2 mb-1"><i class="bi bi-shield-check text-success fs-5"></i><strong>Audit Safe</strong></div>
+          <p class="text-muted mb-0" style="font-size:.82rem;">Every export is automatically logged with user, timestamp and parameters.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const today = new Date();
+const prev  = new Date(today); prev.setDate(today.getDate() - 30);
+document.getElementById('dateTo').value   = today.toISOString().split('T')[0];
+document.getElementById('dateFrom').value = prev.toISOString().split('T')[0];
+
+async function loadDepts() {
+  try {
+    const data = await apiRequest('/auditor/api/departments');
+
+    document.getElementById('deptFilter').innerHTML =
+      '<option value="">All Departments</option>' +
+      data.map(d =>
+        `<option value="${d.dept_Id}">${d.dept_Name}</option>`
+      ).join('');
+
+  } catch (e) {
+    console.error("Dept load failed", e);
+  }
+}
+
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const type   = document.getElementById('reportType').value;
+  if (!type) {
+  showToast("Select report type", "danger");
+  return;
+}
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const dept   = document.getElementById('deptFilter').value;
+  const format = document.getElementById('formatType').value;
+
+  if (!from || !to) { showToast('Please select a date range', 'danger'); return; }
+
+  const btn     = document.getElementById('downloadBtn');
+  const spinner = document.getElementById('dlSpinner');
+  btn.disabled  = true;
+  spinner.classList.remove('d-none');
+
+  try {
+    const url = `/auditor/api/export?type=${type}&date_from=${from}&date_to=${to}&dept=${dept}&format=${format}`;
+    const res = await fetch(url);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Export failed'); }
+    const blob = await res.blob();
+    const link = document.createElement('a');
+    link.href  = URL.createObjectURL(blob);
+    link.download = `HMS_${type}_${from}_${to}.${format}`;
+    link.click();
+    showToast('Report downloaded successfully');
+  } catch (err) {
+    showToast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add('d-none');
+  }
+});
+
+loadDepts();
+</script>
+{% endblock %}

@@ -1,0 +1,423 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Book Appointment — Marvel Hospitals{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .appt-hero {
+    background: linear-gradient(135deg, #0d1b4b 0%, #1a3a8f 60%, #1565c0 100%);
+    padding: 80px 0 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .appt-hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 350px; height: 350px;
+    background: rgba(255,255,255,.05);
+    border-radius: 50%;
+  }
+  .appt-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -40px;
+    width: 280px; height: 280px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+  }
+
+  .appt-cards-section {
+    padding: 60px 0 80px;
+    background: #f4f7fb;
+  }
+
+  .appt-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 8px 40px rgba(0,0,0,.09);
+    border: 2px solid transparent;
+    transition: all .3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .appt-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+    border-radius: 20px 20px 0 0;
+  }
+  .appt-card.card-book::before  { background: linear-gradient(90deg,#1a73e8,#42a5f5); }
+  .appt-card.card-reg::before   { background: linear-gradient(90deg,#27ae60,#66bb6a); }
+
+  .appt-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 56px rgba(0,0,0,.14);
+  }
+  .appt-card.card-book:hover { border-color: #1a73e8; }
+  .appt-card.card-reg:hover  { border-color: #27ae60; }
+
+  .card-icon-wrap {
+    width: 72px; height: 72px;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 1.4rem;
+    flex-shrink: 0;
+  }
+  .card-book .card-icon-wrap { background: #e8f0fe; color: #1a73e8; }
+  .card-reg  .card-icon-wrap { background: #e8f5e9; color: #27ae60; }
+
+  .appt-card h3 {
+    font-weight: 800;
+    font-size: 1.4rem;
+    margin-bottom: .6rem;
+    color: #1a1a2e;
+  }
+  .appt-card > p {
+    color: #666;
+    font-size: .93rem;
+    line-height: 1.7;
+    flex: 1;
+  }
+
+  .appt-card .perks {
+    margin: 1.2rem 0 1.5rem;
+    list-style: none;
+    padding: 0;
+  }
+  .appt-card .perks li {
+    font-size: .85rem;
+    color: #555;
+    padding: .28rem 0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .appt-card .perks li i { font-size: .9rem; }
+  .card-book .perks li i { color: #1a73e8; }
+  .card-reg  .perks li i { color: #27ae60; }
+
+  .btn-card-book {
+    background: linear-gradient(135deg,#1a73e8,#1558c0);
+    color: #fff !important;
+    border: none;
+    border-radius: 50px;
+    padding: .8rem 1.8rem;
+    font-weight: 700;
+    font-size: .95rem;
+    width: 100%;
+    cursor: pointer;
+    transition: all .25s;
+    display: block;
+    text-align: center;
+    text-decoration: none !important;
+  }
+  .btn-card-book:hover { background: linear-gradient(135deg,#1558c0,#0d3f8f); transform:scale(1.02); }
+
+  .btn-card-reg {
+    background: linear-gradient(135deg,#27ae60,#1e8449);
+    color: #fff !important;
+    border: none;
+    border-radius: 50px;
+    padding: .8rem 1.8rem;
+    font-weight: 700;
+    font-size: .95rem;
+    width: 100%;
+    transition: all .25s;
+    display: block;
+    text-align: center;
+    text-decoration: none !important;
+  }
+  .btn-card-reg:hover { background: linear-gradient(135deg,#1e8449,#155d32); transform:scale(1.02); }
+
+  .btn-card-login {
+    background: #fff;
+    color: #1a73e8 !important;
+    border: 2px solid #1a73e8;
+    border-radius: 50px;
+    padding: .7rem 1.8rem;
+    font-weight: 700;
+    font-size: .9rem;
+    width: 100%;
+    transition: all .25s;
+    display: block;
+    text-align: center;
+    text-decoration: none !important;
+    margin-top: .75rem;
+  }
+  .btn-card-login:hover { background: #e8f0fe; color: #1a73e8 !important; }
+
+  .logged-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: #e8f5e9;
+    color: #27ae60;
+    border-radius: 50px;
+    padding: .3rem .9rem;
+    font-size: .78rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  .opid-note {
+    background: #fffbf0;
+    border: 1px solid #ffe082;
+    border-radius: 10px;
+    padding: .9rem 1rem;
+    font-size: .82rem;
+    color: #7a6000;
+  }
+
+  /* Modal */
+  .booking-modal .modal-content { border-radius: 20px; border: none; overflow: hidden; }
+  .booking-modal .modal-header  {
+    background: linear-gradient(135deg,#1a73e8,#1558c0);
+    color: #fff;
+    border: none;
+    padding: 1.5rem 2rem;
+  }
+  .booking-modal .close { color: #fff; opacity: 1; font-size: 1.5rem; }
+  .booking-modal .modal-body { padding: 2rem; }
+  .booking-modal .form-label,
+  .booking-modal label { font-weight: 700; font-size: .82rem; color: #444; }
+  .booking-modal .form-control,
+  .booking-modal .form-select,
+  .booking-modal select { border-radius: 10px; border: 1.5px solid #dde3f0; padding: .6rem .9rem; }
+  .booking-modal .form-control:focus,
+  .booking-modal select:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,.15); outline: none; }
+  .btn-book-confirm {
+    background: linear-gradient(135deg,#1a73e8,#1558c0);
+    color: #fff; border: none; border-radius: 50px;
+    padding: .85rem 2rem; font-weight: 700; font-size: .95rem;
+    width: 100%;
+    transition: all .25s;
+  }
+  .btn-book-confirm:hover { background: linear-gradient(135deg,#1558c0,#0d3f8f); color:#fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="appt-hero">
+  <div class="container text-center" style="position:relative;z-index:2;">
+    <p class="text-white" style="opacity:.75;font-size:.9rem;text-transform:uppercase;letter-spacing:2px;margin-bottom:.5rem;">Marvel Hospitals</p>
+    <h1 class="text-white" style="font-weight:900;font-size:2.6rem;margin-bottom:.8rem;">Book an Appointment</h1>
+    <p class="text-white" style="opacity:.8;max-width:520px;margin:0 auto;font-size:1rem;">
+      Quick, easy, and free to book. Your unique OPID is generated instantly — no payment required at this step.
+    </p>
+  </div>
+</div>
+
+<!-- 2 Cards -->
+<div class="appt-cards-section">
+  <div class="container">
+    <div class="row justify-content-center" style="gap:0;">
+
+      <!-- ── CARD 1: Book Appointment (patient) ───────── -->
+      <div class="col-lg-5 col-md-6 mb-4 d-flex">
+        <div class="appt-card card-book w-100">
+
+          <div class="card-icon-wrap">
+            <i class="icofont-hospital"></i>
+          </div>
+
+          {% if is_logged_in %}
+            <span class="logged-badge">
+              <i class="icofont-check-circled"></i>
+              Logged in as {{ patient.FName }} {{ patient.LName }}
+            </span>
+            <h3>Book Your Appointment</h3>
+            <p>You're all set. Click below to schedule your visit at Marvel Hospitals — choose your preferred doctor, date and time.</p>
+          {% else %}
+            <h3>Already a Patient?</h3>
+            <p>Have an existing account with us? Log in and book an appointment in seconds. Your visit is tracked by a unique OPID.</p>
+          {% endif %}
+
+          <ul class="perks">
+            <li><i class="icofont-check-circled"></i> Instant OPID generated on booking</li>
+            <li><i class="icofont-check-circled"></i> Choose your preferred doctor &amp; time</li>
+            <li><i class="icofont-check-circled"></i> No payment required to book</li>
+            <li><i class="icofont-check-circled"></i> Free follow-up within 7 days</li>
+          </ul>
+
+          {% if is_logged_in %}
+            <button class="btn-card-book" data-toggle="modal" data-target="#bookingModal">
+              <i class="icofont-calendar mr-2"></i>Book Appointment Now
+            </button>
+          {% else %}
+            <a href="/login" class="btn-card-book">
+              <i class="icofont-sign-in mr-2"></i>Login to Book
+            </a>
+          {% endif %}
+
+        </div>
+      </div>
+
+      <!-- ── CARD 2: Register / New Patient ───────────── -->
+      <div class="col-lg-5 col-md-6 mb-4 d-flex">
+        <div class="appt-card card-reg w-100">
+
+          <div class="card-icon-wrap">
+            <i class="icofont-user-alt-3"></i>
+          </div>
+
+          <h3>New Patient?</h3>
+          <p>Don't have an account yet? Register in minutes to create your patient profile, book appointments, and view your medical history.</p>
+
+          <ul class="perks">
+            <li><i class="icofont-check-circled"></i> Create your patient profile instantly</li>
+            <li><i class="icofont-check-circled"></i> Secure access to your health records</li>
+            <li><i class="icofont-check-circled"></i> Book &amp; track appointments online</li>
+            <li><i class="icofont-check-circled"></i> 100% free — no hidden charges</li>
+          </ul>
+
+          <a href="/register" class="btn-card-reg">
+            <i class="icofont-user-alt-3 mr-2"></i>Register for Free
+          </a>
+          <a href="/login" class="btn-card-login">
+            <i class="icofont-sign-in mr-2"></i>Already registered? Login here
+          </a>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- OPID info strip -->
+    <div class="row justify-content-center mt-2">
+      <div class="col-lg-10">
+        <div class="opid-note text-center">
+          <i class="icofont-info-circle" style="color:#f39c12;margin-right:.4rem;"></i>
+          <strong>What is an OPID?</strong> It is your unique <strong>Out-Patient ID</strong> assigned at booking.
+          Show it at the reception desk to check in — <strong>no payment needed at this stage</strong>.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% if is_logged_in %}
+<!-- ── Booking Modal (Bootstrap 4, logged-in patients only) ── -->
+<div class="modal fade booking-modal" id="bookingModal" tabindex="-1" role="dialog" aria-label="Book Appointment" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0" style="font-weight:800;">
+            <i class="icofont-calendar mr-2"></i>Book Appointment
+          </h5>
+          <p style="margin:0;opacity:.8;font-size:.82rem;">No payment required &bull; OPID generated instantly</p>
+        </div>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form method="POST" action="{{ url_for('public.appointment') }}">
+          <div class="row">
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Department</label>
+                <select name="dept_Id" class="form-control">
+                  <option value="">Any Department</option>
+                  {% for d in departments %}
+                  <option value="{{ d.dept_Id }}">{{ d.dept_Name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Preferred Doctor</label>
+                <select name="doct_Id" class="form-control">
+                  <option value="">Any Available Doctor</option>
+                  {% for d in doctors %}
+                  <option value="{{ d.doct_Id }}">Dr. {{ d.FName }} {{ d.LName }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Preferred Date *</label>
+                <input type="date" name="appointment_Date" class="form-control" required min="{{ today }}">
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Preferred Time</label>
+                <select name="time" class="form-control">
+                  <option value="">Any Time</option>
+                  <option>09:00 AM</option>
+                  <option>09:30 AM</option>
+                  <option>10:00 AM</option>
+                  <option>10:30 AM</option>
+                  <option>11:00 AM</option>
+                  <option>11:30 AM</option>
+                  <option>02:00 PM</option>
+                  <option>02:30 PM</option>
+                  <option>03:00 PM</option>
+                  <option>03:30 PM</option>
+                  <option>04:00 PM</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Mode of Visit</label>
+                <select name="mode_of_appointment" class="form-control">
+                  <option value="In-Person">In-Person Visit</option>
+                  <option value="Video">Teleconsult (Video)</option>
+                  <option value="Phone">Teleconsult (Phone)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Reason for Visit</label>
+                <input type="text" name="reason" class="form-control" placeholder="e.g. Fever, Checkup, Pain…">
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="opid-note">
+                <i class="icofont-info-circle" style="color:#f39c12;margin-right:.4rem;"></i>
+                Booking as <strong>{{ patient.FName }} {{ patient.LName }}</strong>.
+                Your OPID will appear on the confirmation screen — please note it for reception check-in.
+              </div>
+            </div>
+
+            <div class="col-12 mt-3">
+              <button type="submit" class="btn-book-confirm">
+                <i class="icofont-calendar mr-2"></i>Confirm Appointment
+              </button>
+            </div>
+
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}About Us{% endblock %}
+{% block nav_about %}active{% endblock %}
+
+{% block content %}
+
+<section class="page-title bg-1">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="block text-center">
+          <span class="text-white">Who We Are</span>
+          <h1 class="text-capitalize mb-5 text-lg">About Marvel Hospitals</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Story -->
+<section class="section about-page">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-4">
+        <h2 class="title-color">Personal Care for Your Healthy Living</h2>
+      </div>
+      <div class="col-lg-8">
+        <p>Founded in 2005, Marvel Hospitals has grown to become one of Telangana's most trusted multi-specialty hospital groups. With over 45 specialist doctors, 6 state-of-the-art facilities across Hyderabad, and a patient-first philosophy, we deliver healthcare that truly makes a difference. Our NABH-accredited hospitals are equipped with the latest diagnostic and surgical technology, ensuring every patient receives the best possible outcome.</p>
+        <img src="{{ url_for('static', filename='images/about/sign.png') }}" alt="Director Signature" class="img-fluid">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Feature blocks -->
+<section class="fetaure-page">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-3 col-md-6">
+        <div class="about-block-item mb-5 mb-lg-0">
+          <img src="{{ url_for('static', filename='images/about/about-1.jpg') }}" alt="Healthcare for All Ages" class="img-fluid w-100">
+          <h4 class="mt-3">Healthcare for All Ages</h4>
+          <p>From paediatrics to geriatrics, our specialists provide age-appropriate, evidence-based care for every family member.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="about-block-item mb-5 mb-lg-0">
+          <img src="{{ url_for('static', filename='images/about/about-2.jpg') }}" alt="Medical Counselling" class="img-fluid w-100">
+          <h4 class="mt-3">Expert Medical Counselling</h4>
+          <p>Our counselors guide you through diagnosis, treatment options, and recovery plans with clarity and empathy.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="about-block-item mb-5 mb-lg-0">
+          <img src="{{ url_for('static', filename='images/about/about-3.jpg') }}" alt="Modern Equipment" class="img-fluid w-100">
+          <h4 class="mt-3">Modern Equipment</h4>
+          <p>3-Tesla MRI, 256-slice CT, robotic surgery suites, and NABL-accredited labs — we invest in the best for your care.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="about-block-item">
+          <img src="{{ url_for('static', filename='images/about/about-4.jpg') }}" alt="Qualified Specialists" class="img-fluid w-100">
+          <h4 class="mt-3">Qualified Specialists</h4>
+          <p>All doctors are nationally and internationally trained with decades of experience in their respective fields.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Awards -->
+<section class="section awards">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-4">
+        <h2 class="title-color">Our Achievements &amp; Accreditations</h2>
+        <div class="divider mt-4 mb-5 mb-lg-0"></div>
+      </div>
+      <div class="col-lg-8">
+        <div class="row">
+          {% for img in ['3.png','4.png','1.png','2.png','5.png','6.png'] %}
+          <div class="col-lg-4 col-md-6 col-sm-6">
+            <div class="award-img">
+              <img src="{{ url_for('static', filename='images/about/' ~ img) }}" alt="Accreditation" class="img-fluid">
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Team -->
+<section class="section team">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+        <div class="section-title text-center">
+          <h2 class="mb-4">Meet Our Specialists</h2>
+          <div class="divider mx-auto my-4"></div>
+          <p>Our panel of 45+ specialists brings international expertise and local commitment to every patient interaction.</p>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      {% set doctors = [
+        ('1.jpg', 'Dr. Ankit Sharma',  'Interventional Cardiologist'),
+        ('2.jpg', 'Dr. Priya Mehta',   'Neurologist, Stroke Specialist'),
+        ('3.jpg', 'Dr. Ravi Rao',      'Orthopaedic Surgeon'),
+        ('4.jpg', 'Dr. Sunita Singh',  'Gynaecologist &amp; Obstetrician'),
+      ] %}
+      {% for img, name, role in doctors %}
+      <div class="col-lg-3 col-md-6 col-sm-6">
+        <div class="team-block mb-5 mb-lg-0">
+          <img src="{{ url_for('static', filename='images/team/' ~ img) }}" alt="{{ name }}" class="img-fluid w-100">
+          <div class="content">
+            <h4 class="mt-4 mb-0"><a href="{{ url_for('public.doctors') }}">{{ name }}</a></h4>
+            <p>{{ role }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="section testimonial">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-6 offset-lg-6">
+        <div class="section-title">
+          <h2 class="mb-4">What Our Patients Say</h2>
+          <div class="divider my-4"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row align-items-center">
+      <div class="col-lg-6 testimonial-wrap offset-lg-6">
+        {% set testimonials = [
+          ('Exceptional Care!',    'Ramesh Babu',    'My cardiac procedure at Marvel Hospitals was seamless and the recovery support outstanding. Truly world-class care.'),
+          ('Expert Neurology!',   'Lakshmi Devi',   'After my stroke, the neuro team gave me a second chance at life. I cannot thank Marvel Hospitals enough for the rehabilitation.'),
+          ('Compassionate Staff!', 'Suresh Reddy',  'Every staff member treated my mother with dignity and kindness. Marvel Hospitals is our family&apos;s first and only choice.'),
+          ('Modern Facilities!',  'Priya Sharma',   'State-of-the-art infrastructure from OPD to ICU, managed brilliantly. Truly Marvel by name, marvel by nature!'),
+        ] %}
+        {% for heading, name, text in testimonials %}
+        <div class="testimonial-block">
+          <div class="client-info">
+            <h4>{{ heading }}</h4>
+            <span>{{ name }}</span>
+          </div>
+          <p>{{ text }}</p>
+          <i class="icofont-quote-right"></i>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

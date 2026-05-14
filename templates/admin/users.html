@@ -1,0 +1,349 @@
+{% extends "common/base.html" %}
+{% block title %}Users & Roles{% endblock %}
+{% block page_heading %}Users &amp; Roles{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link active"><i class="bi bi-people-fill"></i> Users & Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link "><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <input type="text" id="searchInput" class="form-control form-control-sm" style="max-width:240px;"
+    placeholder="Search name or email…" />
+  <select id="roleFilter" class="form-select form-select-sm" style="max-width:160px;">
+    <option value="">All Roles</option>
+    <option>Admin</option>
+    <option>Doctor</option>
+    <option>Receptionist</option>
+    <option>Patient</option>
+    <option>Auditor</option>
+    <option>Nurse</option>
+    <option>Helper</option>
+  </select>
+  <select id="statusFilter" class="form-select form-select-sm" style="max-width:140px;">
+    <option value="">All Status</option>
+    <option>Active</option>
+    <option>Inactive</option>
+  </select>
+  <button class="btn btn-sm btn-hms-primary ms-auto" data-bs-toggle="modal" data-bs-target="#userModal" id="addUserBtn">
+    <i class="bi bi-plus-lg me-1"></i> Add User
+  </button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th id="roleHeader">Role</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersBody">
+          <tr>
+            <td colspan="6" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="usersPagination"></div>
+  </div>
+</div>
+
+<!-- Add / Edit User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="userModalTitle">Add User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editUserId" />
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-bold">Full Name *</label>
+            <input type="text" id="uName" class="form-control" placeholder="Full name" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">Email *</label>
+            <input type="email" id="uEmail" class="form-control" placeholder="user@hospital.org" required />
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">Role *</label>
+            <select id="uRole" class="form-select">
+              <option value="">Select role</option>
+              <option value="1">Admin</option>
+              <option value="3">Nurse</option>
+              <option value="5">Helper</option>
+              <option value="6">Receptionist</option>
+              <option value="7">Auditor</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-hms-primary" id="saveUserBtn">Save User</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+
+  let usersPage = 1;
+  let editingUserId = null;
+
+  // ─────────────────────────────────────────────
+  // LOAD USERS
+  // ─────────────────────────────────────────────
+  async function loadUsers(page = 1) {
+    usersPage = page;
+
+    const search = document.getElementById('searchInput').value;
+    const role = document.getElementById('roleFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    const body = document.getElementById('usersBody');
+    const roleHeader = document.getElementById('roleHeader');
+
+    const shouldHideRole = role && role.trim() !== "";
+
+    // Always update header visibility
+    roleHeader.style.display = shouldHideRole ? 'none' : '';
+
+    body.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-3">
+          <div class="spinner-border spinner-border-sm text-primary"></div>
+        </td>
+      </tr>`;
+
+    try {
+      const data = await apiRequest(
+        `/admin/api/admin/users?page=${page}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}&status=${encodeURIComponent(status)}`
+      );
+
+      // ───── NO DATA CASE ─────
+      if (!data.items?.length) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+              No users found.
+            </td>
+          </tr>`;
+        return;
+      }
+
+      // ───── RENDER TABLE ─────
+      body.innerHTML = data.items.map(u => `
+        <tr>
+          <td class="text-muted">${u.User_ID}</td>
+
+          <td><strong>${u.Name || 'Unknown User'}</strong></td>
+
+          <td>${u.Email}</td>
+
+          <td class="roleCol">
+            <span class="badge bg-secondary">
+              ${u.role_name || '—'}
+            </span>
+          </td>
+
+          <td>${statusBadge(u.is_active ? 'Active' : 'Inactive')}</td>
+
+          <td>
+            <button class="btn btn-sm btn-outline-primary me-1"
+              onclick="editUser(${u.User_ID})">
+              <i class="bi bi-pencil"></i>
+            </button>
+
+            <button class="btn btn-sm ${u.is_active ? 'btn-outline-warning' : 'btn-outline-success'} me-1"
+              onclick="toggleUser(${u.User_ID}, ${u.is_active})">
+              <i class="bi bi-${u.is_active ? 'slash-circle' : 'check-circle'}"></i>
+            </button>
+
+            <button class="btn btn-sm btn-outline-danger"
+              onclick="deleteUser(${u.User_ID})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      // ───── HIDE/SHOW ROLE COLUMN ─────
+      const roleCells = document.querySelectorAll('.roleCol');
+
+      roleCells.forEach(td => {
+        td.style.display = shouldHideRole ? 'none' : '';
+      });
+
+      renderPagination('usersPagination', page, data.total_pages, loadUsers);
+
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // EDIT USER
+  // ─────────────────────────────────────────────
+  window.editUser = async function (id) {
+    try {
+      const u = await apiRequest(`/admin/api/admin/users/${id}`);
+
+      document.getElementById('userModalTitle').textContent = 'Edit User';
+      document.getElementById('editUserId').value = u.User_ID;
+      document.getElementById('uName').value = u.Name;
+      document.getElementById('uEmail').value = u.Email;
+      document.getElementById('uRole').value = u.Role_ID;
+
+      editingUserId = id;
+
+      new bootstrap.Modal(document.getElementById('userModal')).show();
+
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // TOGGLE USER
+  // ─────────────────────────────────────────────
+  window.toggleUser = async function (id, isActive) {
+
+    if (!confirm(`${isActive ? 'Deactivate' : 'Activate'} this user?`)) return;
+
+    try {
+      await apiRequest(
+        `/admin/api/admin/users/${id}/toggle`,
+        { method: 'POST' }
+      );
+
+      showToast(
+        isActive ? 'User deactivated' : 'User activated',
+        isActive ? 'warning' : 'success'
+      );
+
+      loadUsers(usersPage);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ─────────────────────────────────────────────
+  // DELETE USER
+  // ─────────────────────────────────────────────
+  window.deleteUser = async function (id) {
+
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    try {
+      await apiRequest(`/admin/api/admin/users/${id}`, {
+        method: 'DELETE'
+      });
+
+      showToast("User deleted successfully 🗑️", "success");
+
+      loadUsers(usersPage);
+
+    } catch (err) {
+      console.error(err);
+      showToast("Delete failed", "danger");
+    }
+  };
+
+  // ─────────────────────────────────────────────
+  // ADD USER BUTTON
+  // ─────────────────────────────────────────────
+  document.getElementById('addUserBtn').addEventListener('click', () => {
+    document.getElementById('userModalTitle').textContent = 'Add User';
+
+    document.getElementById('editUserId').value = '';
+    document.getElementById('uName').value = '';
+    document.getElementById('uEmail').value = '';
+
+    editingUserId = null;
+  });
+
+  // ─────────────────────────────────────────────
+  // SAVE USER
+  // ─────────────────────────────────────────────
+  document.getElementById('saveUserBtn').addEventListener('click', async () => {
+
+    const id = document.getElementById('editUserId').value;
+
+    const body = {
+      name: document.getElementById('uName').value,
+      email: document.getElementById('uEmail').value,
+      role_id: parseInt(document.getElementById('uRole').value),
+    };
+
+    try {
+      if (id) {
+        await apiRequest(
+          `/admin/api/admin/users/${id}`,
+          { method: 'PUT', body: JSON.stringify(body) }
+        );
+        showToast('User updated successfully');
+      } else {
+        await apiRequest(
+          `/admin/api/admin/users`,
+          { method: 'POST', body: JSON.stringify(body) }
+        );
+        showToast('User created successfully');
+      }
+
+      bootstrap.Modal.getInstance(
+        document.getElementById('userModal')
+      ).hide();
+
+      loadUsers(usersPage);
+
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // ─────────────────────────────────────────────
+  // FILTERS (Debounced)
+  // ─────────────────────────────────────────────
+  let filterTimer;
+
+  ['searchInput', 'roleFilter', 'statusFilter'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => loadUsers(1), 350);
+    });
+  });
+
+  // INIT
+  loadUsers(1);
+
+})();
+</script>
+{% endblock %}

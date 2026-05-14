@@ -1,0 +1,338 @@
+{% extends "common/base.html" %}
+{% block title %}Doctor Leave Requests{% endblock %}
+{% block page_heading %}Doctor Leave Requests{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/admin/users" class="nav-link"><i class="bi bi-people-fill"></i> Users &amp; Roles</a>
+<a href="/admin/doctors" class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/admin/departments" class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<a href="/admin/patients" class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/admin/doctor_leaves" class="nav-link active"><i class="bi bi-calendar-x"></i> Doctor Leaves</a>
+<a href="/admin/messages" class="nav-link"><i class="bi bi-envelope-fill"></i> Messages</a>
+<span class="nav-label">Operations</span>
+<a href="/admin/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/admin/billing" class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/admin/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Leave Page Styles ── */
+  .lv-page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem;
+  }
+  .lv-page-header h4 {
+    font-weight: 800; color: #111827; margin: 0;
+    font-size: 1.25rem; display: flex; align-items: center; gap: .5rem;
+  }
+  .lv-stats { display: flex; gap: .75rem; flex-wrap: wrap; }
+  .lv-stat-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .35rem .85rem; border-radius: 999px;
+    font-size: .78rem; font-weight: 700;
+  }
+  .chip-pending  { background:#fef3c7; color:#92400e; }
+  .chip-approved { background:#d1fae5; color:#065f46; }
+  .chip-rejected { background:#fee2e2; color:#991b1b; }
+
+  /* Filter bar */
+  .lv-filters { display:flex; align-items:center; gap:.6rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .lv-filter-btn {
+    padding:.35rem .9rem; border-radius:8px; font-size:.8rem; font-weight:600;
+    border:2px solid #e5e7eb; cursor:pointer; background:#fff; color:#6b7280;
+    transition: all .18s;
+  }
+  .lv-filter-btn.active, .lv-filter-btn:hover { background:var(--hms-primary); color:#fff; border-color:var(--hms-primary); }
+  .lv-search { margin-left:auto; position:relative; }
+  .lv-search input {
+    padding:.38rem 2.2rem .38rem .85rem; border-radius:8px; border:2px solid #e5e7eb;
+    font-size:.82rem; outline:none; width:200px; transition:border .18s;
+  }
+  .lv-search input:focus { border-color:var(--hms-primary); }
+  .lv-search i { position:absolute; right:.6rem; top:50%; transform:translateY(-50%); color:#9ca3af; }
+
+  /* Leave cards */
+  .lv-grid { display:flex; flex-direction:column; gap:.75rem; }
+
+  .lv-card {
+    background:#fff; border-radius:14px; border:1.5px solid #e5e7eb;
+    padding:1.1rem 1.3rem; display:flex; align-items:flex-start; gap:1rem;
+    transition: box-shadow .18s, border-color .18s;
+  }
+  .lv-card:hover { box-shadow:0 4px 20px rgba(26,115,232,.10); border-color:#c7d2fe; }
+  .lv-card.pending  { border-left:4px solid #f59e0b; }
+  .lv-card.approved { border-left:4px solid #10b981; }
+  .lv-card.rejected { border-left:4px solid #ef4444; }
+
+  .lv-avatar {
+    width:44px; height:44px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:1rem; flex-shrink:0; color:#fff;
+  }
+  .avatar-pending  { background:linear-gradient(135deg,#f59e0b,#d97706); }
+  .avatar-approved { background:linear-gradient(135deg,#10b981,#059669); }
+  .avatar-rejected { background:linear-gradient(135deg,#ef4444,#dc2626); }
+
+  .lv-body { flex:1; min-width:0; }
+  .lv-top  { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:.25rem; }
+  .lv-doctor { font-weight:700; color:#111827; font-size:.92rem; }
+  .lv-id     { font-size:.78rem; color:#6b7280; }
+
+  .lv-dates {
+    display:flex; align-items:center; gap:.5rem;
+    font-size:.84rem; color:#374151; font-weight:600; margin-bottom:.25rem;
+  }
+  .lv-dates i { color:var(--hms-primary); }
+  .lv-duration { font-size:.76rem; color:#6b7280; background:#f3f4f6; padding:.15rem .55rem; border-radius:999px; }
+
+  .lv-reason-preview { color:#6b7280; font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:500px; }
+
+  .lv-badge {
+    font-size:.72rem; font-weight:700; padding:.2rem .65rem; border-radius:999px;
+    display:inline-flex; align-items:center; gap:.3rem;
+  }
+  .badge-pending  { background:#fef3c7; color:#92400e; }
+  .badge-approved { background:#d1fae5; color:#065f46; }
+  .badge-rejected { background:#fee2e2; color:#991b1b; }
+
+  .lv-time { font-size:.74rem; color:#9ca3af; margin-left:auto; flex-shrink:0; white-space:nowrap; }
+
+  /* Reason expand */
+  .lv-reason-full {
+    display:none; background:#f8fafc; border:1.5px solid #e5e7eb;
+    border-radius:9px; padding:.75rem 1rem; margin-top:.6rem;
+    font-size:.84rem; color:#374151; line-height:1.6;
+  }
+
+  /* Actions */
+  .lv-actions { display:flex; gap:.5rem; margin-top:.6rem; flex-wrap:wrap; }
+  .lv-btn {
+    display:inline-flex; align-items:center; gap:.3rem;
+    padding:.3rem .75rem; border-radius:7px; font-size:.78rem; font-weight:600;
+    border:1.5px solid transparent; cursor:pointer; text-decoration:none;
+    transition: all .17s;
+  }
+  .lv-btn-approve { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+  .lv-btn-approve:hover { background:#15803d; color:#fff; }
+  .lv-btn-reject  { background:#fff1f2; color:#be123c; border-color:#fecdd3; }
+  .lv-btn-reject:hover  { background:#be123c; color:#fff; }
+  .lv-btn-view    { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+  .lv-btn-view:hover    { background:#1d4ed8; color:#fff; }
+
+  /* Confirm modal */
+  .confirm-backdrop {
+    display:none; position:fixed; inset:0; background:rgba(17,24,39,.45);
+    z-index:1060; align-items:center; justify-content:center;
+  }
+  .confirm-backdrop.open { display:flex; }
+  .confirm-box {
+    background:#fff; border-radius:18px; padding:2rem; width:100%; max-width:420px;
+    box-shadow:0 20px 60px rgba(0,0,0,.18); animation:slideUp .2s ease;
+    text-align:center;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)} }
+  .confirm-icon { font-size:2.5rem; margin-bottom:.75rem; }
+  .confirm-box h5 { font-weight:800; margin-bottom:.4rem; }
+  .confirm-box p  { color:#6b7280; font-size:.88rem; margin-bottom:1.5rem; }
+  .confirm-footer { display:flex; justify-content:center; gap:.75rem; }
+
+  /* Detail drawer */
+  .detail-drawer {
+    display:none; background:#f8fafc; border:1.5px solid #e5e7eb;
+    border-radius:12px; padding:1rem 1.2rem; margin-top:.6rem;
+  }
+  .detail-row { display:flex; gap:.5rem; margin-bottom:.5rem; font-size:.84rem; }
+  .detail-label { font-weight:700; color:#374151; min-width:90px; }
+  .detail-val   { color:#6b7280; }
+
+  /* Empty state */
+  .lv-empty { text-align:center; padding:4rem 2rem; color:#9ca3af; }
+  .lv-empty i { font-size:3rem; margin-bottom:1rem; display:block; }
+</style>
+
+<div class="lv-page-header">
+  <h4><i class="bi bi-calendar-x-fill" style="color:var(--hms-primary)"></i> Leave Requests</h4>
+  <div class="lv-stats">
+    <span class="lv-stat-chip chip-pending">
+      <i class="bi bi-hourglass-split"></i>
+      {{ leaves | selectattr('status', 'equalto', 'Pending') | list | length }} Pending
+    </span>
+    <span class="lv-stat-chip chip-approved">
+      <i class="bi bi-check-circle-fill"></i>
+      {{ leaves | selectattr('status', 'equalto', 'Approved') | list | length }} Approved
+    </span>
+    <span class="lv-stat-chip chip-rejected">
+      <i class="bi bi-x-circle-fill"></i>
+      {{ leaves | selectattr('status', 'equalto', 'Rejected') | list | length }} Rejected
+    </span>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="lv-filters">
+  <button class="lv-filter-btn active" data-filter="all">All</button>
+  <button class="lv-filter-btn" data-filter="Pending">Pending</button>
+  <button class="lv-filter-btn" data-filter="Approved">Approved</button>
+  <button class="lv-filter-btn" data-filter="Rejected">Rejected</button>
+  <div class="lv-search">
+    <input type="text" id="lvSearch" placeholder="Search by doctor ID or reason…">
+    <i class="bi bi-search"></i>
+  </div>
+</div>
+
+<!-- Flash -->
+{% with fmsgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, fm in fmsgs %}
+    <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' }} alert-dismissible fade show">
+      {{ fm }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+<!-- Leave Cards -->
+<div class="lv-grid" id="lvList">
+  {% if leaves %}
+    {% for leave in leaves %}
+    {% set status_lower = leave.status | lower %}
+    <div class="lv-card {{ status_lower }}"
+         data-status="{{ leave.status }}"
+         data-search="{{ (leave.doct_Id | string ~ ' ' ~ (leave.reason or '')) | lower }}">
+
+      <div class="lv-avatar avatar-{{ status_lower }}">
+        <i class="bi bi-person-fill"></i>
+      </div>
+
+      <div class="lv-body">
+        <div class="lv-top">
+          <span class="lv-doctor">Doctor #{{ leave.doct_Id }}</span>
+          <span class="lv-id">ID: {{ leave.leave_id }}</span>
+
+          {% if leave.status == 'Pending' %}
+            <span class="lv-badge badge-pending"><i class="bi bi-hourglass-split"></i> Pending</span>
+          {% elif leave.status == 'Approved' %}
+            <span class="lv-badge badge-approved"><i class="bi bi-check-circle-fill"></i> Approved</span>
+          {% else %}
+            <span class="lv-badge badge-rejected"><i class="bi bi-x-circle-fill"></i> Rejected</span>
+          {% endif %}
+
+          <span class="lv-time">
+            {% if leave.applied_at %}{{ leave.applied_at.strftime('%d %b %Y') }}{% endif %}
+          </span>
+        </div>
+
+        <div class="lv-dates">
+          <i class="bi bi-calendar-range"></i>
+          {{ leave.leave_from }} &rarr; {{ leave.leave_to }}
+          {% if leave.leave_from and leave.leave_to %}
+            {% set delta = (leave.leave_to - leave.leave_from).days + 1 %}
+            <span class="lv-duration">{{ delta }} day{{ 's' if delta != 1 else '' }}</span>
+          {% endif %}
+        </div>
+
+        {% if leave.reason %}
+          <div class="lv-reason-preview">{{ leave.reason }}</div>
+          <div class="lv-reason-full" id="lvReason{{ leave.leave_id }}">
+            <strong>Full Reason:</strong><br>{{ leave.reason }}
+          </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="lv-actions">
+          {% if leave.status == 'Pending' %}
+            <button class="lv-btn lv-btn-approve"
+                    onclick="confirmAction('approve', '{{ leave.leave_id }}', '{{ leave.doct_Id }}')">
+              <i class="bi bi-check-lg"></i> Approve
+            </button>
+            <button class="lv-btn lv-btn-reject"
+                    onclick="confirmAction('reject', '{{ leave.leave_id }}', '{{ leave.doct_Id }}')">
+              <i class="bi bi-x-lg"></i> Reject
+            </button>
+          {% endif %}
+
+          <button class="lv-btn lv-btn-view"
+                  onclick="toggleReason('{{ leave.leave_id }}')"
+                  id="lvViewBtn{{ leave.leave_id }}">
+            <i class="bi bi-file-text"></i> View Reason
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="lv-empty">
+      <i class="bi bi-calendar-check"></i>
+      <p class="fw-bold mb-1">No leave requests found</p>
+      <p style="font-size:.85rem">Doctor leave applications will appear here.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Confirm Modal -->
+<div class="confirm-backdrop" id="confirmBackdrop">
+  <div class="confirm-box">
+    <div class="confirm-icon" id="confirmIcon"></div>
+    <h5 id="confirmTitle"></h5>
+    <p id="confirmMsg"></p>
+    <div class="confirm-footer">
+      <button class="btn btn-outline-secondary btn-sm" onclick="closeConfirm()">Cancel</button>
+      <a href="#" id="confirmActionBtn" class="btn btn-sm"></a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Filter
+document.querySelectorAll('.lv-filter-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.lv-filter-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const f = this.dataset.filter;
+    document.querySelectorAll('.lv-card').forEach(c => {
+      c.style.display = (f === 'all' || c.dataset.status === f) ? '' : 'none';
+    });
+  });
+});
+
+// Search
+document.getElementById('lvSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.lv-card').forEach(c => {
+    c.style.display = c.dataset.search.includes(q) ? '' : 'none';
+  });
+});
+
+// Toggle reason
+function toggleReason(id) {
+  const el = document.getElementById('lvReason' + id);
+  const btn = document.getElementById('lvViewBtn' + id);
+  const visible = el.style.display === 'block';
+  el.style.display = visible ? 'none' : 'block';
+  btn.innerHTML = visible
+    ? '<i class="bi bi-file-text"></i> View Reason'
+    : '<i class="bi bi-chevron-up"></i> Hide Reason';
+}
+
+// Confirm modal
+function confirmAction(type, leaveId, doctId) {
+  const isApprove = type === 'approve';
+  document.getElementById('confirmIcon').textContent = isApprove ? '✅' : '❌';
+  document.getElementById('confirmTitle').textContent = isApprove ? 'Approve Leave Request?' : 'Reject Leave Request?';
+  document.getElementById('confirmMsg').textContent =
+    `Are you sure you want to ${type} the leave request #${leaveId} for Doctor #${doctId}?`;
+  const btn = document.getElementById('confirmActionBtn');
+  btn.href = `/admin/${type}_leave/${leaveId}`;
+  btn.className = `btn btn-sm ${isApprove ? 'btn-success' : 'btn-danger'}`;
+  btn.textContent = isApprove ? 'Yes, Approve' : 'Yes, Reject';
+  document.getElementById('confirmBackdrop').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmBackdrop').classList.remove('open');
+}
+document.getElementById('confirmBackdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+</script>
+{% endblock %}

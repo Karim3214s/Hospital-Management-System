@@ -1,0 +1,355 @@
+{% extends "common/base.html" %}
+{% block title %}My Appointments{% endblock %}
+{% block page_heading %}My Appointments{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link active">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+
+
+{% endblock %}
+
+{% block content %}
+
+<div class="filter-bar">
+  <div class="btn-group btn-group-sm" id="tabGroup">
+    <button class="btn btn-hms-primary" data-tab="Today">Today</button>
+    <button class="btn btn-outline-secondary" data-tab="All">All</button>
+    <button class="btn btn-outline-secondary" data-tab="Upcoming">Upcoming</button>
+    <button class="btn btn-outline-secondary" data-tab="Past">Past</button>
+  </div>
+
+  <input type="text" id="searchInput" class="form-control form-control-sm ms-3"
+    style="max-width:220px;" placeholder="Search patient...">
+</div>
+
+<div class="hms-card">
+  <div class="card-header">
+    <i class="bi bi-calendar2-check text-primary"></i>
+    <h6 id="tableTitle">Today Appointments</h6>
+    <span class="ms-auto text-muted small" id="resultCount"></span>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+
+      <table class="table hms-table mb-0">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Patient ID</th>
+            <th>Patient</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody id="apptBody">
+          <tr>
+            <td colspan="6" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 🔥 MODAL -->
+      <div class="modal fade" id="treatmentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <h5 class="modal-title">Add Treatment</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+              <input type="hidden" id="m_apptId">
+              <input type="hidden" id="m_patientId"> <!-- ✅ FIX -->
+
+              <div class="row g-3">
+
+                <div class="col-md-4">
+                  <label>Patient</label>
+                  <input type="text" id="m_patientName" class="form-control" readonly>
+                </div>
+
+                <div class="col-md-4">
+                  <label>Visit Date</label>
+                  <input type="date" id="m_visitDate" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                  <label>Treatment</label>
+                  <select id="m_treatment" class="form-select"></select>
+                </div>
+
+                <div class="col-md-4">
+                  <label>Cost</label>
+                  <input type="text" id="m_cost" class="form-control" readonly>
+                </div>
+
+                <div class="col-md-12">
+                  <label>Diagnosis</label>
+                  <textarea id="m_diagnosis" class="form-control"></textarea>
+                </div>
+
+                <div class="col-md-4">
+                  <label>
+                    <input type="checkbox" id="m_followup">
+                    Follow Up
+                  </label>
+                </div>
+
+                <div class="col-md-4">
+                  <label>Next Visit</label>
+                  <input type="date" id="m_nextVisit" class="form-control">
+                </div>
+
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-hms-primary" onclick="saveTreatmentModal()">Save</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="d-flex justify-content-end p-3" id="apptPagination"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+let aPage = 1
+let aTab = "Today"
+
+async function loadAppts(page = 1) {
+
+  aPage = page
+
+  const search = document.getElementById('searchInput').value
+  const body = document.getElementById('apptBody')
+
+  body.innerHTML = `
+<tr><td colspan="6" class="text-center py-3">
+<div class="spinner-border spinner-border-sm text-primary"></div>
+</td></tr>`
+
+  const data = await apiRequest(
+    `/doctor/api/appointments?tab=${aTab}&page=${page}&search=${encodeURIComponent(search)}`
+  )
+
+  document.getElementById('resultCount').textContent =
+    `${data.total ?? 0} records`
+
+  if (!data.items?.length) {
+    body.innerHTML =
+      '<tr><td colspan="6" class="text-center py-4 text-muted">No appointments found.</td></tr>'
+    return
+  }
+
+  body.innerHTML = data.items.map(a => `
+
+<tr>
+
+<td>
+<strong>${a.appointment_date}</strong><br>
+<span class="text-muted" style="font-size:.78rem;">
+${a.appointment_time || ''}
+</span>
+</td>
+
+<td><span class="fw-bold text-primary">${a.patient_Id}</span></td>
+
+<td>${a.patient_name}</td>
+
+<td>${a.reason || '—'}</td>
+
+<td>${statusBadge(a.appointment_status)}</td>
+
+<td>
+
+${a.appointment_status === "Completed" ? `
+
+<button class="btn btn-sm btn-secondary me-1" disabled>Add Treatment</button>
+<button class="btn btn-sm btn-outline-success" disabled>✔ Completed</button>
+
+` : a.appointment_status === "Scheduled" ? `
+
+<button class="btn btn-sm btn-secondary me-1" disabled>Add Treatment</button>
+<button class="btn btn-sm btn-outline-secondary" disabled>Not Checked-In</button>
+
+` : `
+
+<button class="btn btn-sm btn-hms-primary me-1"
+onclick="openTreatmentModal(${a.appointment_Id}, ${a.patient_Id}, \`${a.patient_name}\`, '${a.appointment_status}')">
+Add Treatment
+</button>
+
+<button class="btn btn-sm btn-success"
+onclick="completeAppt(${a.appointment_Id})">
+Complete
+</button>
+
+`}
+
+</td>
+
+</tr>
+
+`).join('')
+
+  renderPagination('apptPagination', page, data.total_pages, loadAppts)
+}
+
+
+// 🔥 MODAL LOGIC
+let treatmentModal = new bootstrap.Modal(document.getElementById('treatmentModal'))
+let treatmentList = []
+
+async function loadTreatmentOptions() {
+  if (treatmentList.length) return
+
+  const data = await apiRequest('/doctor/api/treatment-catalogue')
+  treatmentList = data
+
+  const select = document.getElementById('m_treatment')
+  select.innerHTML = `<option value="">Select</option>`
+
+  data.forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.name
+    opt.textContent = t.name
+    opt.dataset.cost = t.default_cost
+    select.appendChild(opt)
+  })
+}
+
+async function openTreatmentModal(apptId, patientId, patientName, status) {
+
+  if (status === "Checked-In") {
+    try {
+      await apiRequest(`/doctor/api/appointments/${apptId}/start`, { method: 'POST' })
+    } catch {
+      showToast("Failed to start treatment", "danger")
+      return
+    }
+  }
+
+  if (status === "Scheduled") {
+    showToast("Patient must be checked-in first", "warning")
+    return
+  }
+
+  await loadTreatmentOptions()
+
+  document.getElementById('m_apptId').value = apptId
+  document.getElementById('m_patientId').value = patientId
+  document.getElementById('m_patientName').value = patientName
+
+  document.getElementById('m_visitDate').value =
+    new Date().toISOString().split('T')[0]
+
+  document.getElementById('m_treatment').value = ''
+  document.getElementById('m_cost').value = ''
+  document.getElementById('m_diagnosis').value = ''
+  document.getElementById('m_followup').checked = false
+  document.getElementById('m_nextVisit').value = ''
+
+  treatmentModal.show()
+}
+
+document.getElementById('m_treatment').addEventListener('change', function () {
+  const opt = this.options[this.selectedIndex]
+  document.getElementById('m_cost').value =
+    opt.dataset.cost ? `₹ ${opt.dataset.cost}` : ''
+})
+
+async function saveTreatmentModal() {
+
+  const apptId = document.getElementById('m_apptId').value
+  const patientId = document.getElementById('m_patientId').value
+  const treatment = document.getElementById('m_treatment').value
+  const diagnosis = document.getElementById('m_diagnosis').value.trim()
+
+  if (!treatment) return showToast("Select treatment", "warning")
+  if (!diagnosis) return showToast("Enter diagnosis", "warning")
+
+  await apiRequest('/doctor/api/add-treatment', {
+    method: 'POST',
+    body: JSON.stringify({
+      appointment_id: parseInt(apptId),
+      patient_id: parseInt(patientId),
+      visit_date: document.getElementById('m_visitDate').value,
+      diagnosis: diagnosis,
+      treatment: treatment,
+      followup_required: document.getElementById('m_followup').checked,
+      next_visit: document.getElementById('m_nextVisit').value || null
+    })
+  })
+
+  showToast("Treatment saved")
+  treatmentModal.hide()
+  loadAppts(aPage)
+}
+
+
+// OTHER
+async function completeAppt(id) {
+  await apiRequest(`/doctor/api/appointments/${id}/complete`, { method: 'POST' })
+  showToast("Appointment completed")
+  loadAppts(aPage)
+}
+
+document.querySelectorAll('#tabGroup button').forEach(btn => {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#tabGroup button')
+      .forEach(b => b.classList.replace('btn-hms-primary','btn-outline-secondary'))
+    this.classList.replace('btn-outline-secondary','btn-hms-primary')
+    aTab = this.dataset.tab
+    loadAppts(1)
+  })
+})
+
+let ft
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(ft)
+  ft = setTimeout(() => loadAppts(1), 350)
+})
+
+loadAppts(1)
+
+</script>
+{% endblock %}

@@ -1,0 +1,559 @@
+{% extends "common/base.html" %}
+{% block title %}Generate Bill{% endblock %}
+{% block page_heading %}Generate Bill{% endblock %}
+
+{% block extra_css %}
+<style>
+  #patientSearchContainer {
+    position: relative;
+  }
+
+  #patientResults {
+    position: absolute;
+    z-index: 1050;
+    width: 100%;
+    max-height: 250px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: white;
+  }
+
+  .line-item-row {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .sticky-summary {
+    position: sticky;
+    top: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link active"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <div class="col-lg-7">
+    <div class="hms-card p-4">
+      <h6 class="fw-bold mb-3">Bill Details</h6>
+      <div id="patientSearchContainer" class="mb-3">
+        <label class="form-label fw-bold">Search Patient *</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" id="patientSearch" class="form-control" placeholder="Type name or Patient ID...">
+        </div>
+        <div id="patientResults" class="list-group"></div>
+      </div>
+
+      <hr>
+
+      <label class="fw-bold mb-2">Treatments & Charges</label>
+      <div id="lineItems"></div>
+      <button class="btn btn-sm btn-outline-primary mt-2" id="addLineBtn">
+        <i class="bi bi-plus-circle"></i> Add Item
+      </button>
+
+      <div class="mt-4 p-3 border rounded bg-light">
+        <h6 class="small fw-bold text-uppercase text-muted">Quick Add Medicine</h6>
+        <div class="row g-2">
+          <div class="col-md-7">
+            <input class="form-control form-control-sm" id="medicineName" placeholder="Medicine Name">
+          </div>
+          <div class="col-md-3">
+            <input class="form-control form-control-sm" id="medicineCost" type="number" placeholder="Cost">
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-sm btn-secondary w-100" onclick="addMedicine()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <textarea id="billNotes" class="form-control mt-3" placeholder="Internal notes..."></textarea>
+
+      <button id="generateBillBtn" class="btn btn-primary mt-3 w-100">
+        <i class="bi bi-file-earmark-plus"></i> Generate Final Bill
+      </button>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="hms-card p-4 sticky-summary">
+      <h6 class="fw-bold mb-3">Live Summary</h6>
+
+      <div id="billPreview" class="border rounded p-3 bg-white mb-3" style="min-height: 100px;">
+        <span class="text-muted italic">No items added yet...</span>
+      </div>
+
+      <div class="payment-section border-top pt-3">
+
+        <label class="form-label fw-bold">Payment Method</label>
+
+        <select id="paymentMethod" class="form-select mb-2">
+          <option value="">Select</option>
+          <option value="cash">Cash</option>
+          <option value="upi">UPI</option>
+        </select>
+
+        <input type="text" id="patientUpi" class="form-control mb-2" placeholder="Enter Patient UPI ID"
+          style="display:none;">
+
+        <input type="number" id="payAmount" class="form-control mb-2" readonly>
+
+        <button id="payBtn" class="btn btn-success w-100">
+          Process Payment
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+  let allPatients = [];
+  let allTreatments = [];
+  let selectedPatientId = null;
+  let currentBillId = null;
+  let currentOpId = null;
+
+  /* ================= LOAD ================= */
+  async function loadInitialData() {
+    allPatients = await apiRequest('/receptionist/api/receptionist/completed-opds');
+    allTreatments = await apiRequest('/receptionist/api/receptionist/all-treatments');
+  }
+
+  /* ================= SEARCH ================= */
+  document.getElementById('patientSearch').oninput = function () {
+
+    const query = this.value.toLowerCase().trim();
+    const resultsDiv = document.getElementById('patientResults');
+
+    if (!query) {
+      resultsDiv.innerHTML = "";
+      return;
+    }
+
+    const filtered = allPatients.filter(p =>
+      p.patient_name.toLowerCase().includes(query) ||
+      String(p.patient_Id).includes(query)
+    );
+
+    resultsDiv.innerHTML = filtered.map(p => `
+    <button class="list-group-item list-group-item-action"
+      onclick="loadPatientOPDs(${p.patient_Id}, '${p.patient_name}')">
+
+      ${p.patient_name}
+      <small class="float-end">ID: ${p.patient_Id}</small>
+
+    </button>
+  `).join('');
+  };
+
+  /* ================= PAYMENT METHOD ================= */
+  document.getElementById('paymentMethod').onchange = function () {
+    const upiField = document.getElementById('patientUpi');
+
+    const payBtn = document.getElementById('payBtn');
+
+    if (this.value === "upi") {
+      upiField.style.display = "block";
+      payBtn.innerText = "Pay with Razorpay";
+    } else if (this.value === "cash") {
+      upiField.style.display = "none";
+      payBtn.innerText = "Confirm Cash Payment";
+    } else {
+      upiField.style.display = "none";
+    }
+  };
+
+  /* ================= LOAD OPIDs ================= */
+  async function loadPatientOPDs(patientId, name) {
+
+    let old = document.getElementById('opdList');
+    if (old) old.remove();
+
+    selectedPatientId = patientId;
+    document.getElementById('patientSearch').value = name;
+
+    document.getElementById('patientResults').innerHTML = "";
+
+    let opdDiv = document.getElementById('opdList');
+    if (!opdDiv) {
+      opdDiv = document.createElement('div');
+      opdDiv.id = 'opdList';
+      opdDiv.className = 'list-group mt-2';
+      document.getElementById('patientSearchContainer').appendChild(opdDiv);
+    }
+
+    opdDiv.innerHTML = `<div class="text-muted p-2">Loading OPIDs...</div>`;
+
+    const res = await apiRequest(`/receptionist/api/receptionist/opds-by-patient/${patientId}`);
+
+    if (!res.length) {
+      opdDiv.innerHTML = `<div class="text-muted p-2">No OPDs found</div>`;
+      return;
+    }
+
+    opdDiv.innerHTML = res.map(opd => `
+    <button class="list-group-item list-group-item-action"
+      onclick="selectOPD(${opd.appointment_Id})">
+
+      OPID ${opd.appointment_Id}
+      <small class="float-end">${opd.date || ''}</small>
+
+    </button>
+  `).join('');
+  }
+
+  /* ================= SELECT OPID ================= */
+  async function selectOPD(opid) {
+
+    currentOpId = opid;
+
+    document.getElementById('lineItems').innerHTML = "";
+
+    // 🔥 KEEP OPID VISIBLE ALWAYS
+    let previewHTML = `<div class="text-muted small mb-2">OPID: ${opid}</div>
+                     <div>Loading consultation...</div>`;
+
+    document.getElementById('billPreview').innerHTML = previewHTML;
+
+    const consult = await apiRequest(
+      `/receptionist/api/receptionist/consultation-by-opid/${opid}`
+    );
+
+    if (!consult) {
+      alert("Failed to load consultation");
+      return;
+    }
+
+    // 🔥 ADD THIS LINE
+    window.consultationPaid = consult?.already_paid || false;
+
+    // 🔥 CASE 1: NO DATA
+    if (!consult || consult.cost === null) {
+
+      addLineItem("Consultation (No Fee)", 0, true);
+
+      document.getElementById('billPreview').innerHTML =
+        `<div class="text-muted small mb-2">OPID: ${opid}</div>
+       <div class="text-warning fw-bold">No consultation fee available</div>`;
+
+      return;
+    }
+
+    // 🔥 NORMAL
+    addLineItem(
+      `${consult.name} (${consult.doctor})`,
+      consult.cost,
+      true
+    );
+
+
+    currentBillId = null;
+    document.getElementById('generateBillBtn').disabled = false;
+
+    if (consult.already_paid) {
+      document.getElementById('payBtn').disabled = true;
+      document.getElementById('payBtn').innerText = "Already Paid";
+    } else {
+      document.getElementById('payBtn').disabled = false;
+      document.getElementById('payBtn').innerText = "Pay with Razorpay";
+    }
+  }
+
+  /* ================= ADD ITEM ================= */
+  function addLineItem(name = '', cost = '', lock = false) {
+
+    const row = document.createElement('div');
+    row.className = 'line-item-row d-flex gap-2 mb-2 align-items-center';
+
+    let options = '<option value="">Select Treatment</option>';
+
+    allTreatments.forEach(t => {
+      options += `<option value="${t.name}" data-cost="${t.cost}">
+      ${t.name} - ₹${t.cost}
+    </option>`;
+    });
+
+    row.innerHTML = `
+    <select class="form-select item-name"></select>
+
+    <div class="input-group" style="width:150px;">
+      <span class="input-group-text">₹</span>
+      <input type="number" class="form-control item-cost" value="${cost}">
+    </div>
+
+    <button class="btn btn-outline-danger btn-sm"
+      onclick="this.parentElement.remove(); updatePreview()">✕</button>
+  `;
+
+    const select = row.querySelector('.item-name');
+    select.innerHTML = options;
+
+    document.getElementById('lineItems').appendChild(row);
+
+    const costInput = row.querySelector('.item-cost');
+
+    select.onchange = function () {
+      const price = this.options[this.selectedIndex].getAttribute("data-cost");
+      costInput.value = price || 0;
+      updatePreview();
+    };
+
+    costInput.oninput = updatePreview;
+
+    if (name) {
+      const option = [...select.options].find(o => o.value === name);
+      if (option) select.value = name;
+      if (lock) {
+        select.disabled = true;
+        costInput.readOnly = true;   // 🔥 LOCK CONSULTATION
+      }
+    }
+
+    updatePreview();
+  }
+
+  /* ================= MEDICINE ================= */
+  function addMedicine() {
+
+    const name = document.getElementById('medicineName').value;
+    const cost = document.getElementById('medicineCost').value;
+
+    if (!name || !cost) return;
+
+    const row = document.createElement('div');
+    row.className = 'line-item-row d-flex gap-2 mb-2 align-items-center';
+
+    row.innerHTML = `
+    <input type="text" class="form-control item-name" value="${name}">
+    <div class="input-group" style="width:150px;">
+      <span class="input-group-text">₹</span>
+      <input type="number" class="form-control item-cost" value="${cost}">
+    </div>
+    <button class="btn btn-outline-danger btn-sm"
+      onclick="this.parentElement.remove(); updatePreview()">✕</button>
+  `;
+
+    document.getElementById('lineItems').appendChild(row);
+
+    row.querySelector('.item-cost').oninput = updatePreview;
+
+    document.getElementById('medicineName').value = "";
+    document.getElementById('medicineCost').value = "";
+
+    updatePreview();
+  }
+
+  /* ================= PREVIEW ================= */
+  function updatePreview() {
+
+    const rows = document.querySelectorAll('.line-item-row');
+
+    let total = 0;
+    let html = "";
+
+    rows.forEach(r => {
+      const name = r.querySelector('.item-name').value || "Item";
+      const cost = parseFloat(r.querySelector('.item-cost').value) || 0;
+
+      total += cost;
+
+      html += `<div class="d-flex justify-content-between small">
+      <span>${name}</span>
+      <span>₹${cost}</span>
+    </div>`;
+    });
+
+    let header = currentOpId
+      ? `<div class="text-muted small mb-2">OPID: ${currentOpId}</div>`
+      : "";
+
+    let extra = "";
+    if (window.consultationPaid) {
+      extra = `<div class="text-success small mt-2">✔ Consultation Already Paid</div>`;
+    }
+
+    document.getElementById('billPreview').innerHTML =
+      header +
+      html +
+      `<hr>
+     <div class="d-flex justify-content-between fw-bold">
+       <span>Total</span>
+       <span>₹${total}</span>
+     </div>` +
+      extra;
+
+    document.getElementById('payAmount').value = total;
+  }
+
+  /* ================= GENERATE BILL ================= */
+  document.getElementById('generateBillBtn').onclick = async () => {
+
+    if (!currentOpId) {
+      alert("Select OPID first");
+      return;
+    }
+
+    const items = [...document.querySelectorAll('.line-item-row')]
+      .map(r => ({
+        name: r.querySelector('.item-name').value,
+        cost: parseFloat(r.querySelector('.item-cost').value) || 0
+      }))
+      .filter(i => i.name);
+
+    const total = items.reduce((s, i) => s + i.cost, 0);
+
+    const res = await apiRequest('/receptionist/api/receptionist/generate-bill', {
+      method: 'POST',
+      body: JSON.stringify({
+        patient_id: selectedPatientId,
+        appointment_id: currentOpId,
+        total_amount: total,
+        items
+      })
+    });
+
+    if (res) {
+      currentBillId = res.bill_id;
+      document.getElementById('generateBillBtn').disabled = true;
+      document.getElementById('payBtn').disabled = false;
+    }
+  };
+
+  /* ================= PAYMENT ================= */
+  document.getElementById('payBtn').onclick = async () => {
+
+    if (!currentBillId) {
+      alert("Generate bill first");
+      return;
+    }
+
+    const method = document.getElementById('paymentMethod').value;
+    const amount = document.getElementById('payAmount').value;
+
+    if (amount <= 0) {
+      alert("No amount to pay");
+      return;
+    }
+
+    if (!method) {
+      alert("Select payment method");
+      return;
+    }
+
+    if (method === "cash") {
+
+      await apiRequest('/receptionist/api/receptionist/pay-bill', {
+        method: 'POST',
+        body: JSON.stringify({
+          bill_id: currentBillId,
+          amount: amount,
+          payment_method: "cash"
+        })
+      });
+
+      alert("Cash Payment Recorded ✅");
+
+      document.getElementById('payBtn').innerText = "Paid ✅";
+      document.getElementById('payBtn').disabled = true;
+
+      return;
+    }
+
+    if (method === "upi") {
+
+      const patientUpi = document.getElementById('patientUpi').value;
+
+      if (!patientUpi) {
+        alert("Enter patient UPI ID");
+        return;
+      }
+
+      // 🔥 Step 1: simulate request
+      await apiRequest('/receptionist/api/receptionist/send-upi-request', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount,
+          vpa: patientUpi
+        })
+      });
+
+      alert("Request sent. Opening payment...");
+
+      // 🔥 Step 2: open Razorpay checkout
+      const order = await apiRequest('/receptionist/api/receptionist/create-razorpay-order', {
+
+        method: 'POST',
+        body: JSON.stringify({ amount })
+      });
+
+      if (!order || !order.id) {
+        alert("Failed to create order");
+        return;
+      }
+
+      const options = {
+        key: "rzp_test_Sg1XNkaEMXPDyB",
+        amount: order.amount,
+        currency: "INR",
+        order_id: order.id,
+
+        handler: async function (response) {
+
+          const verify = await apiRequest('/receptionist/api/receptionist/verify-payment', {
+            method: 'POST',
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              bill_id: currentBillId
+            })
+          });
+
+          if (verify.status === "Paid") {
+            alert("Payment Successful ✅");
+            document.getElementById('payBtn').innerText = "Paid ✅";
+            document.getElementById('payBtn').disabled = true;
+          } else {
+            alert("Payment failed");
+          }
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    }
+  };
+
+
+  /* ================= INIT ================= */
+  window.onload = async () => {
+    await loadInitialData();
+    document.getElementById('payBtn').disabled = true;
+  };
+
+  // 🔥 ADD THIS HERE
+  document.getElementById('addLineBtn').onclick = () => {
+    addLineItem();
+  };
+</script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+{% endblock %}

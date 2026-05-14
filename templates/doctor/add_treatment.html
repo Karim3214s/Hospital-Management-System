@@ -1,0 +1,266 @@
+{% extends "common/base.html" %}
+{% block title %}Add Treatment{% endblock %}
+{% block page_heading %}Add Treatment{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link ">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+
+<a href="/doctor/apply_leave" class="nav-link">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+
+
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="hms-card">
+    <div class="card-header">
+        <i class="bi bi-clipboard2-pulse text-primary"></i>
+        <h6>Add Treatment</h6>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row g-3">
+
+            <div class="col-md-3">
+                <label class="form-label">Patient ID</label>
+                <input type="text" id="patientSearch" class="form-control" placeholder="Enter patient id">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">First Name</label>
+                <input type="text" id="fname" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Last Name</label>
+                <input type="text" id="lname" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Gender</label>
+                <input type="text" id="gender" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Phone</label>
+                <input type="text" id="phone" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Visit Date</label>
+                <input type="date" id="visitDate" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Treatment</label>
+                <select id="treatmentSelect" class="form-select"></select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Cost</label>
+                <input type="text" id="cost" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Diagnosis / Notes</label>
+                <textarea id="diagnosis" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" id="followupCheck">
+                    Follow Up Required
+                </label>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Next Visit</label>
+                <input type="date" id="nextVisit" class="form-control">
+            </div>
+
+            <div class="col-md-12 text-end">
+                <button class="btn btn-hms-primary" onclick="saveTreatment()">
+                    <i class="bi bi-save me-1"></i>
+                    Save Treatment
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+
+    let selectedPatient = null
+    let apptId = null
+    let patientId = null
+
+    document.addEventListener("DOMContentLoaded", async function () {
+
+        const params = new URLSearchParams(window.location.search)
+
+        apptId = params.get("appt_id")
+        patientId = params.get("patient_id")
+
+        const patientSearch = document.getElementById("patientSearch")
+        const treatmentSelect = document.getElementById("treatmentSelect")
+        const cost = document.getElementById("cost")
+        const visitDate = document.getElementById("visitDate")
+        const diagnosis = document.getElementById("diagnosis")
+        const fname = document.getElementById("fname")
+        const lname = document.getElementById("lname")
+        const gender = document.getElementById("gender")
+        const phone = document.getElementById("phone")
+
+        const followupCheck = document.getElementById("followupCheck")
+        const nextVisit = document.getElementById("nextVisit")
+
+        visitDate.value =
+            new Date().toISOString().split('T')[0]
+
+
+        /* LOAD PATIENT */
+        if (patientId) {
+
+            const p =
+                await apiRequest(`/doctor/api/patient/${patientId}`)
+
+            selectedPatient = p
+
+            patientSearch.value = p.patient_Id || ""
+            fname.value = p.FName || ""
+            lname.value = p.LName || ""
+            gender.value = p.Gender || ""
+            phone.value = p.contact_No || ""
+
+        }
+
+
+        /* MANUAL SEARCH */
+        patientSearch.addEventListener("change", async function () {
+
+            const pid = this.value
+            if (!pid) return
+
+            const p =
+                await apiRequest(`/doctor/api/patient/${pid}`)
+
+            selectedPatient = p
+
+            fname.value = p.FName || ""
+            lname.value = p.LName || ""
+            gender.value = p.Gender || ""
+            phone.value = p.contact_No || ""
+
+        })
+
+
+        /* LOAD TREATMENTS */
+        const data =
+            await apiRequest('/doctor/api/treatment-catalogue')
+
+        treatmentSelect.innerHTML =
+            `<option value="">Select treatment</option>`
+
+        data.forEach(t => {
+
+            const opt =
+                document.createElement("option")
+
+            opt.value = t.name
+            opt.textContent = t.name
+            opt.dataset.cost = t.default_cost
+
+            treatmentSelect.appendChild(opt)
+
+        })
+
+
+        /* AUTO COST */
+        treatmentSelect.addEventListener("change", function () {
+
+            const selected =
+                this.options[this.selectedIndex]
+
+            const c = selected.dataset.cost
+
+            cost.value = c ? `₹ ${c}` : ""
+
+        })
+
+
+        /* SAVE */
+        window.saveTreatment = async function () {
+
+            if (!selectedPatient) {
+                showToast("Select patient", "warning")
+                return
+            }
+
+            if (!treatmentSelect.value) {
+                showToast("Select treatment", "warning")
+                return
+            }
+
+            if (!apptId) {
+                showToast("Invalid appointment. Open from appointments page", "danger");
+                return;
+            }
+
+            console.log("apptId:", apptId);
+
+            await apiRequest('/doctor/api/add-treatment', {
+                method: 'POST',
+                body: JSON.stringify({
+
+                    appointment_id: parseInt(apptId),
+                    patient_id: selectedPatient.patient_Id,
+                    visit_date: visitDate.value,
+
+                    diagnosis: diagnosis.value,
+                    treatment: treatmentSelect.value,
+
+                    cost: parseFloat(
+                        cost.value.replace('₹', '')
+                    ) || 0,
+
+                    followup_required: followupCheck.checked,
+                    next_visit: nextVisit.value || null
+
+                })
+            })
+
+            showToast("Treatment saved")
+
+            window.location = "/doctor/appointments"
+
+        }
+
+    })
+
+</script>
+{% endblock %}

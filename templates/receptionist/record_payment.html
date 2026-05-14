@@ -1,0 +1,494 @@
+{% extends "common/base.html" %}
+{% block title %}Record Payment{% endblock %}
+{% block page_heading %}Record Payment{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link"><i class="bi bi-calendar-plus"></i> Book Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link active"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block content %}
+<!-- Pending bills list -->
+<div class="filter-bar mb-3">
+  <input type="text" id="searchInput" class="form-control form-control-sm" style="max-width:240px;"
+    placeholder="Search patient name or bill #…" />
+  <select id="statusFilter" class="form-select form-select-sm" style="max-width:140px;">
+    <option value="">All</option>
+    <option value="Pending" selected>Pending</option>
+    <option value="Partial">Partial</option>
+    <option value="Paid">Paid</option>
+  </select>
+</div>
+
+<div class="hms-card">
+  <div class="card-header">
+    <i class="bi bi-cash-coin text-primary"></i>
+    <h6>Unpaid Bills</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead>
+          <tr>
+            <th>Bill #</th>
+            <th>OPD #</th>
+            <th>Patient</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="billsBody">
+          <tr>
+            <td colspan="8" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="billsPagination"></div>
+  </div>
+</div>
+
+<!-- Payment Panel (shown when bill selected) -->
+<div id="paymentPanel" class="d-none mt-4">
+  <div class="row g-4">
+    <!-- Bill Summary -->
+    <div class="col-lg-5">
+      <div class="hms-card">
+        <div class="card-header"><i class="bi bi-file-text text-primary"></i>
+          <h6>Bill Summary</h6>
+        </div>
+        <div class="card-body" id="billSummaryBody">
+          <div class="text-center py-3">
+            <div class="spinner-border text-primary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="col-lg-7">
+      <div class="hms-card">
+        <div class="card-header"><i class="bi bi-cash text-success"></i>
+          <h6>Record Payment</h6>
+        </div>
+        <div class="card-body p-4">
+          <input type="hidden" id="activeBillId" />
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Amount (₹) *</label>
+              <input type="number" id="payAmount" class="form-control" min="1" step="0.01" />
+              <div id="paymentMsg" class="text-danger small mt-1"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Payment Method *</label>
+              <select id="payMethod" class="form-select">
+                <option>Cash</option>
+                <option>Card</option>
+                <option>UPI</option>
+                <option>Online</option>
+              </select>
+            </div>
+
+            <div class="col-12 text-center d-none" id="qrSection">
+              <canvas id="qrCanvas"></canvas>
+              <p class="small text-muted mt-2">Scan to Pay</p>
+            </div>
+            <div class="col-12" id="txnGroup">
+              <label class="form-label fw-bold">Transaction ID</label>
+              <input type="text" id="payTxn" class="form-control" placeholder="Required for Card/UPI" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Payment Date *</label>
+              <input type="date" id="payDate" class="form-control" />
+            </div>
+
+            <!-- Breakdown -->
+            <div class="col-12">
+              <div class="bg-light rounded p-3" id="payBreakdown">
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-muted">Total Amount</span><span id="brTotal">—</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-muted">Previously Paid</span><span id="brPaid">—</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1 fw-bold">
+                  <span>New Payment</span><span id="brNew">—</span>
+                </div>
+                <hr class="my-2" />
+                <div class="d-flex justify-content-between fw-bold text-success">
+                  <span>Remaining Balance</span><span id="brRemain">—</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <button class="btn btn-hms-primary w-100" id="confirmPayBtn">
+                <span id="paySpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let rpPage = 1;
+  let activeBill = null;
+
+  /* ================== API REQUEST WRAPPER ================== */
+  function generateTxnId() {
+    const now = new Date();
+
+    return "TXN-" +
+      now.getFullYear() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') +
+      "-" +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0') +
+      "-" +
+      Math.floor(Math.random() * 1000);
+  }
+
+/* ================== LOAD BILLS ================== */
+  const statusFilter = document.getElementById("statusFilter");
+const header = document.querySelector(".card-header h6");
+
+statusFilter.addEventListener("change", () => {
+
+  const val = statusFilter.value;
+
+  if (!val) {
+    header.innerText = "All Bills";
+  } else if (val === "Paid") {
+    header.innerText = "Completed Bills";
+  } else {
+    header.innerText = val + " Bills";
+  }
+
+});
+
+  /* ================= LOAD BILLS ================= */
+  async function loadBills(page = 1) {
+    rpPage = page;
+
+    const search = document.getElementById('searchInput').value;
+    const status = document.getElementById('statusFilter').value;
+    const body = document.getElementById('billsBody');
+
+    body.innerHTML = `<tr><td colspan="8" class="text-center py-3">
+    <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+    try {
+      const data = await apiRequest(`/api/billing?page=${page}&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`);
+
+      if (!data.items?.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No unpaid bills found.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = data.items.map(b => {
+
+        const isPaid =
+          (b.bill_status || "").toLowerCase() === "paid" ||
+          Number(b.balance) === 0;
+
+        return `
+      <tr>
+        <td>BL-${String(b.bill_id).padStart(4, '0')}</td>
+        <td>OP-${b.appointment_Id || '-'}</td>
+        <td>${b.patient_name}</td>
+        <td>${b.created_at || '-'}</td>
+        <td>₹${(b.total_amount || 0).toFixed(2)}</td>
+        <td>₹${(b.amount_paid || 0).toFixed(2)}</td>
+        <td class="fw-bold text-danger">₹${(b.balance || 0).toFixed(2)}</td>
+        <td>${statusBadge(b.bill_status)}</td>
+        <td>
+         <button class="btn btn-sm ${isPaid ? 'btn-success' : 'btn-hms-primary'}"
+  ${isPaid ? '' : `onclick="selectBill(${b.bill_id})"`}>
+
+  ${isPaid ? 'Completed ✔' : 'Pay Now →'}
+
+</button>
+        </td>
+      </tr>`;
+      }).join('');
+
+      renderPagination('billsPagination', page, data.total_pages, loadBills);
+
+    } catch (e) {
+      console.error("Load bills error:", e);
+
+      document.getElementById('billsBody').innerHTML =
+        '<tr><td colspan="8" class="text-center text-danger py-3">Failed to load bills</td></tr>';
+    }
+  }
+
+  /* ================= SELECT BILL ================= */
+async function selectBill(billId) {
+
+  document.getElementById('paymentMsg').textContent = "";
+
+  try {
+    const b = await apiRequest(`/api/billing/${billId}`);
+    activeBill = b;
+
+    // ✅ FIRST CHECK (VERY IMPORTANT)
+    if ((b.bill_status || "").toLowerCase() === "paid" || Number(b.balance) === 0) {
+
+      document.getElementById('paymentMsg').textContent =
+        "This bill is already completed ✔";
+
+      return; // 🚫 STOP HERE — NO PANEL
+    }
+
+    // ✅ OPEN PANEL ONLY IF NOT PAID
+    document.getElementById('paymentPanel').classList.remove('d-none');
+    document.getElementById('paymentPanel').scrollIntoView({ behavior: 'smooth' });
+
+    document.getElementById('activeBillId').value = billId;
+    document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
+
+    document.getElementById('billSummaryBody').innerHTML = `
+      <table class="table table-sm mb-0">
+        <tr><td>Patient</td><td><strong>${b.patient_name}</strong></td></tr>
+        <tr><td>Total</td><td>₹${b.total_amount.toFixed(2)}</td></tr>
+        <tr><td>Paid</td><td class="text-success">₹${b.amount_paid.toFixed(2)}</td></tr>
+        <tr><td>Balance</td><td class="text-danger fw-bold">₹${b.balance.toFixed(2)}</td></tr>
+        <tr><td>Status</td><td>${statusBadge(b.bill_status)}</td></tr>
+      </table>`;
+
+    document.getElementById('payAmount').value = b.balance.toFixed(2);
+
+    updateBreakdown();
+    handleTxnVisibility();
+
+  } catch (e) {
+    console.error("Bill load error:", e);
+  }
+}
+
+  /* ================= BREAKDOWN ================= */
+  function updateBreakdown() {
+
+    if (!activeBill) return;
+
+    let newPay = parseFloat(document.getElementById('payAmount').value) || 0;
+
+    if (newPay > activeBill.balance) {
+      newPay = activeBill.balance;
+      document.getElementById('payAmount').value = newPay;
+    }
+
+    const remain = Math.max(0, activeBill.balance - newPay);
+
+    document.getElementById('brTotal').textContent = `₹${activeBill.total_amount.toFixed(2)}`;
+    document.getElementById('brPaid').textContent = `₹${activeBill.amount_paid.toFixed(2)}`;
+    document.getElementById('brNew').textContent = `₹${newPay.toFixed(2)}`;
+    document.getElementById('brRemain').textContent = `₹${remain.toFixed(2)}`;
+  }
+
+  document.getElementById('payAmount').addEventListener('input', updateBreakdown);
+  document.getElementById('payMethod').addEventListener('change', handleTxnVisibility);
+
+  /* ================= PAYMENT METHOD ================= */
+  function handleTxnVisibility() {
+
+    const method = document.getElementById('payMethod').value;
+    const txnGroup = document.getElementById('txnGroup');
+    const txnInput = document.getElementById('payTxn');
+    const qrSection = document.getElementById('qrSection');
+
+    // Always show txn field
+    txnGroup.style.display = '';
+
+    // CASH → disable + empty
+    if (method === 'Cash') {
+      txnInput.value = '';
+      txnInput.disabled = true;
+    }
+
+    // CARD / ONLINE → auto generate
+    else if (['Card', 'Online'].includes(method)) {
+
+      txnInput.disabled = false;
+
+      if (!txnInput.value) {
+        txnInput.value = generateTxnId();
+      }
+    }
+
+    // 🔥 UPI → AUTO GENERATE (IMPORTANT FIX)
+    else if (method === 'UPI') {
+
+      txnInput.disabled = true;
+
+      // generate txn immediately
+      txnInput.value = generateTxnId();
+
+      qrSection.classList.remove('d-none');
+
+      const amount = document.getElementById('payAmount').value || 0;
+      generateQR(amount);
+    } else {
+      txnInput.value = '';
+      txnInput.disabled = false;
+    }
+
+    // Hide QR for non-UPI
+    if (method !== "UPI") {
+      qrSection.classList.add('d-none');
+    }
+  }
+  /* ================= CONFIRM PAYMENT ================= */
+  document.getElementById('confirmPayBtn').addEventListener('click', async () => {
+    const msg = document.getElementById('paymentMsg');
+
+if ((activeBill?.bill_status || "").toLowerCase() === "paid" || Number(activeBill?.balance) === 0) {
+
+  msg.textContent = "Payment already completed. No further action needed.";
+  return;
+}document.getElementById('paymentMsg').textContent = "";
+
+    const billId = parseInt(document.getElementById('activeBillId').value);
+    const amount = parseFloat(document.getElementById('payAmount').value);
+    const method = document.getElementById('payMethod').value;
+    let txnInput = document.getElementById('payTxn');
+    let txn = txnInput.value;
+
+    // 🔥 Ensure txn exists for UPI, Card, Online
+    if (['Card', 'Online', 'UPI'].includes(method) && !txn) {
+      txn = generateTxnId();
+      txnInput.value = txn;
+    }
+
+    if (!txn && ['Card', 'Online'].includes(method)) {
+
+      const now = new Date();
+
+      txn = "TXN-" +
+        now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') +
+        "-" +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0') +
+        String(now.getSeconds()).padStart(2, '0') +
+        "-" +
+        Math.floor(Math.random() * 1000);
+
+      // 🔥 IMPORTANT → set value in input field
+      txnInput.value = txn;
+    }
+
+    if (!billId || !amount) return;
+
+    // 🔥 Prevent overpay
+    if (amount > activeBill.balance) {
+      showToast('Cannot pay more than balance', 'danger');
+      return;
+    }
+
+    if (amount <= 0) {
+      showToast("Enter valid amount", "danger");
+      return;
+    }
+
+    const btn = document.getElementById('confirmPayBtn');
+    const spinner = document.getElementById('paySpinner');
+
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    try {
+      const res = await apiRequest('/api/billing/payment', {
+        method: 'POST',
+        body: JSON.stringify({
+          bill_id: billId,
+          amount,
+          payment_method: method,
+          transaction_id: txn || null,
+          payment_date: document.getElementById('payDate').value,
+        }),
+      });
+
+      console.log("Payment response:", res);
+
+      // 🔥 Update local state
+      activeBill.amount_paid += amount;
+      activeBill.balance -= amount;
+
+      if (activeBill.balance <= 0) {
+        activeBill.bill_status = "Paid";
+      } else {
+        activeBill.bill_status = "Partial";
+      }
+
+      // 🔥 Close panel
+      document.getElementById('paymentPanel').classList.add('d-none');
+      activeBill = null;
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+
+      showToast("Payment recorded successfully ✅", "success");
+
+      // 🔥 Reload table
+      loadBills(rpPage);
+
+    } catch (e) {
+      console.error("Payment error:", e);
+
+      showToast("Payment failed. Try again.", "danger");
+
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+    }
+  });
+
+  /* ================= FILTER ================= */
+  let ft;
+  ['searchInput', 'statusFilter'].forEach(id =>
+    document.getElementById(id).addEventListener('input', () => {
+      clearTimeout(ft);
+      ft = setTimeout(() => loadBills(1), 300);
+    })
+  );
+
+  /* ================= UPI QR CODE ================= */
+  function generateQR(amount) {
+    const canvas = document.getElementById("qrCanvas");
+
+    if (!canvas) return;
+
+    const upiLink = `upi://pay?pa=9966642982@ybl&pn=Hospital&am=${amount}&cu=INR`;
+
+    QRCode.toCanvas(canvas, upiLink, function (error) {
+      if (error) console.error(error);
+    });
+  }
+
+  /* ================= INIT ================= */
+  loadBills(1);
+  handleTxnVisibility();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+{% endblock %}

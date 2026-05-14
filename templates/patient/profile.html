@@ -1,0 +1,259 @@
+{% extends "common/base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block page_heading %}My Profile{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Patient</span>
+<a href="/patient/profile" class="nav-link active"><i class="bi bi-person-circle"></i> My Profile</a>
+<a href="/patient/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> My Appointments</a>
+<a href="/patient/bills" class="nav-link"><i class="bi bi-receipt"></i> My Bills</a>
+<a href="/patient/treatments" class="nav-link"><i class="bi bi-clipboard2-pulse"></i> View Treatments</a>
+<span class="nav-label">Account</span>
+<a href="/logout" class="nav-link text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Patient Card -->
+  <div class="col-lg-4">
+    <div class="hms-card text-center p-4">
+      <div class="mx-auto mb-3" style="width:80px;height:80px;border-radius:50%;
+           background:var(--hms-accent);color:#fff;display:flex;
+           align-items:center;justify-content:center;font-size:2rem;
+           font-weight:800;" id="ptInitials">—</div>
+
+      <h5 class="fw-bold" id="ptName">—</h5>
+      <span class="badge-status status-active mb-3">Active Patient</span>
+
+      <div class="text-start" style="font-size:.88rem;">
+        <div class="mb-2">
+          <i class="bi bi-calendar me-2 text-primary"></i>
+          DOB: <span id="ptDob">—</span>
+        </div>
+
+        <div class="mb-2">
+          <i class="bi bi-gender-ambiguous me-2 text-primary"></i>
+          <span id="ptGender">—</span>
+        </div>
+
+        <div class="mb-2">
+          <i class="bi bi-telephone me-2 text-primary"></i>
+          <span id="ptPhone">—</span>
+        </div>
+
+        <div>
+          <i class="bi bi-geo-alt me-2 text-primary"></i>
+          <span id="ptAddr">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Profile -->
+  <div class="col-lg-8">
+
+    <div class="hms-card mb-4">
+
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <i class="bi bi-pencil text-primary"></i>
+          <h6 class="d-inline">Edit Profile</h6>
+        </div>
+
+        <button id="editBtn" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-pencil"></i> Edit
+        </button>
+      </div>
+
+      <div class="card-body p-4">
+        <form id="profileForm">
+
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">First Name *</label>
+              <input type="text" id="pfFName" class="form-control" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Last Name *</label>
+              <input type="text" id="pfLName" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Date of Birth</label>
+              <input type="date" id="pfDob" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Gender</label>
+              <select id="pfGender" class="form-select">
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Phone *</label>
+              <input type="tel" id="pfPhone" class="form-control" />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-bold">Address</label>
+              <input type="text" id="pfAddr" class="form-control" />
+            </div>
+
+          </div>
+
+          <button id="saveBtn" type="submit" class="btn btn-hms-primary mt-3" style="display:none">
+            <i class="bi bi-check-circle me-1"></i> Save Changes
+          </button>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- Change password -->
+    <div class="hms-card">
+      <div class="card-header">
+        <i class="bi bi-lock text-warning"></i>
+        <h6>Change Password</h6>
+      </div>
+
+      <div class="card-body p-4">
+        <form id="pwdForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Current Password</label>
+              <input type="password" id="currPwd" class="form-control" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-bold">New Password</label>
+              <input type="password" id="newPwd" class="form-control" minlength="8" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-warning mt-3 fw-bold text-white">
+            Update Password
+          </button>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+
+  <script>
+
+    const genderMap = {
+      "M": "Male",
+    "F": "Female",
+    "O": "Other"
+}
+
+    function setEditable(enabled) {
+      document.querySelectorAll(
+        '#profileForm input, #profileForm select'
+      ).forEach(el => el.disabled = !enabled)
+
+  document.getElementById('saveBtn').style.display =
+    enabled ? 'inline-block' : 'none'
+}
+
+    document.getElementById('editBtn').addEventListener('click', function () {
+
+  const disabled =
+    document.getElementById('pfFName').disabled
+
+    setEditable(disabled)
+
+    this.innerHTML = disabled
+    ? '<i class="bi bi-x"></i> Cancel'
+    : '<i class="bi bi-pencil"></i> Edit'
+})
+
+
+    async function loadProfile() {
+
+  const p = await apiRequest('/api/patient/profile')
+  const genderReverseMap = {
+  "Male": "M",
+  "Female": "F",
+  "Other": "O"
+};
+
+pfGender.value = genderReverseMap[p.Gender] || p.Gender || 'M';
+
+    const initials =
+    `${p.FName?.[0] || ''}${p.LName?.[0] || ''}`.toUpperCase()
+
+    ptInitials.textContent = initials
+    ptName.textContent = `${p.FName} ${p.LName}`
+  ptDob.textContent = p.Date_Of_Birth || '—'
+  ptGender.textContent = genderMap[p.Gender] || '—'
+  ptPhone.textContent = p.contact_No || '—'
+  ptAddr.textContent = p.pt_Address || '—'
+
+  pfFName.value = p.FName || ''
+  pfLName.value = p.LName || ''
+  pfDob.value = p.Date_Of_Birth || ''
+  ptGender.textContent =genderMap[p.Gender] || p.Gender || '—';
+  pfPhone.value = p.contact_No || ''
+  pfAddr.value = p.pt_Address || ''
+}
+
+
+profileForm.addEventListener('submit', async e => {
+  e.preventDefault()
+
+  await apiRequest('/api/patient/profile', {
+    method: 'PUT',
+    body: JSON.stringify({
+      fname: pfFName.value,
+      lname: pfLName.value,
+      dob: pfDob.value,
+      gender: pfGender.value,
+      phone: pfPhone.value,
+      address: pfAddr.value
+    })
+  })
+
+  showToast('Profile updated')
+
+  setEditable(false)
+
+  editBtn.innerHTML =
+    '<i class="bi bi-pencil"></i> Edit'
+
+  loadProfile()
+})
+
+
+pwdForm.addEventListener('submit', async e => {
+  e.preventDefault()
+
+  await apiRequest('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currPwd.value,
+      new_password: newPwd.value
+    })
+  })
+
+  showToast('Password changed')
+  pwdForm.reset()
+})
+
+
+loadProfile()
+setEditable(false)
+</script>
+{% endblock %}

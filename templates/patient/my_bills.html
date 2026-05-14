@@ -1,0 +1,101 @@
+{% extends "common/base.html" %}
+{% block title %}My Bills{% endblock %}
+{% block page_heading %}My Bills{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Patient</span>
+<a href="/patient/profile" class="nav-link"><i class="bi bi-person-circle"></i> My Profile</a>
+<a href="/patient/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> My Appointments</a>
+<a href="/patient/bills" class="nav-link active"><i class="bi bi-receipt"></i> My Bills</a>
+<a href="/patient/treatments" class="nav-link"><i class="bi bi-clipboard2-pulse"></i> View Treatments</a>
+<span class="nav-label">Account</span>
+<a href="/logout" class="nav-link text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+{% endblock %}
+
+{% block content %}
+<!-- KPI -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-icon" style="background:#e8f0fe;color:#1a73e8;"><i class="bi bi-receipt"></i></div>
+      <div><div class="stat-label">Total Bills</div><div class="stat-value" id="kpiTotal">—</div></div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-icon" style="background:#d4edda;color:#27ae60;"><i class="bi bi-check-circle"></i></div>
+      <div><div class="stat-label">Paid</div><div class="stat-value" id="kpiPaid">—</div></div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-icon" style="background:#dce5ff;color:#3f51b5;"><i class="bi bi-hourglass-split"></i></div>
+      <div><div class="stat-label">Partial</div><div class="stat-value" id="kpiPartial">—</div></div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-icon" style="background:#fff3cd;color:#f39c12;"><i class="bi bi-exclamation-circle"></i></div>
+      <div><div class="stat-label">Pending</div><div class="stat-value" id="kpiPending">—</div></div></div>
+  </div>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>Bill #</th><th>Date</th><th>Treatment / Notes</th>
+          <th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Action</th>
+        </tr></thead>
+        <tbody id="billsBody">
+          <tr><td colspan="8" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end p-3" id="billsPagination"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let bPage = 1;
+
+async function loadBills(page = 1) {
+  bPage = page;
+  const body = document.getElementById('billsBody');
+  body.innerHTML = `<tr><td colspan="8" class="text-center py-3">
+    <div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+  try {
+    const data = await apiRequest(`/api/patient/bills?page=${page}`);
+    document.getElementById('kpiTotal').textContent   = data.stats?.total   ?? '—';
+    document.getElementById('kpiPaid').textContent    = data.stats?.paid    ?? '—';
+    document.getElementById('kpiPartial').textContent = data.stats?.partial ?? '—';
+    document.getElementById('kpiPending').textContent = data.stats?.pending ?? '—';
+    if (!data.items?.length) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No bills found.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.items.map(b => `
+      <tr>
+        <td>BL-${String(b.bill_Id).padStart(4,'0')}</td>
+        <td>${b.bill_date}</td>
+        <td>${b.notes || '—'}</td>
+        <td>₹${(b.total_amount||0).toFixed(2)}</td>
+        <td class="text-success">₹${(b.amount_paid||0).toFixed(2)}</td>
+        <td class="${b.balance > 0 ? 'text-danger fw-bold' : ''}">₹${(b.balance||0).toFixed(2)}</td>
+        <td>${statusBadge(b.bill_status)}</td>
+        <td>
+          ${b.bill_status === 'Paid' ?
+            `<button class="btn btn-sm btn-outline-success" onclick="downloadInvoice(${b.bill_Id})">
+               <i class="bi bi-download me-1"></i>Invoice
+             </button>` :
+            `<span class="text-muted small">Pay at reception</span>`}
+        </td>
+      </tr>`).join('');
+    renderPagination('billsPagination', page, data.total_pages, loadBills);
+  } catch (_) {}
+}
+
+function downloadInvoice(billId) {
+  window.open(`/api/billing/${billId}/invoice`, '_blank');
+}
+
+loadBills(1);
+</script>
+{% endblock %}

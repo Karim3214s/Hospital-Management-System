@@ -1,0 +1,1915 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Services & Departments{% endblock %}
+{% block nav_service %}active{% endblock %}
+
+
+{% block content %}
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+   CHATBOT WIDGET STYLES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --chatbot-primary: #667eea;
+    --chatbot-secondary: #764ba2;
+    --chatbot-success: #28a745;
+    --chatbot-danger: #dc3545;
+    --chatbot-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    --chatbot-radius: 16px;
+  }
+
+  .chatbot-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  }
+
+  .bounce {
+    animation: bounce 2s infinite;
+  }
+
+  .chatbot-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 99999;
+    /* 🔥 increase this */
+  }
+
+  /* ===== FINAL SCROLL BUTTON FIX ===== */
+
+  .scroll-top,
+  #scrollTop,
+  .back-to-top,
+  .backtop,
+  .scrollUp,
+  .scroll-up {
+    right: 100px !important;
+    /* move LEFT of chatbot */
+    bottom: 24px !important;
+    z-index: 9998 !important;
+  }
+
+  /* Prevent overlap area */
+  .scroll-top:hover,
+  #scrollTop:hover {
+    transform: translateX(-5px);
+  }
+
+  /* 🔥 Disable scroll-to-top button completely */
+  .scroll-top,
+  #scrollTop,
+  .back-to-top,
+  .backtop,
+  .scrollUp,
+  .scroll-up {
+    display: none !important;
+  }
+
+  .emoji-btn {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   LAUNCHER BUTTON
+   ───────────────────────────────────────────────────────────────────── */
+
+  .chatbot-launcher {
+    position: relative;
+    background: linear-gradient(135deg, var(--chatbot-primary), var(--chatbot-secondary));
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    box-shadow: var(--chatbot-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 15px;
+    font-weight: 600;
+    animation: slideInRight 0.6s ease-out, float 3s ease-in-out infinite;
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .chatbot-launcher:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+  }
+
+  .chatbot-launcher:active {
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .launcher-icon {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+
+  .pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid white;
+    border-radius: 50%;
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+
+  /* ===== FIX SCROLL BUTTON POSITION (FINAL) ===== */
+
+  .scroll-top,
+  #scrollTop,
+  .back-to-top {
+    bottom: 24px !important;
+    right: 100px !important;
+    /* move LEFT of chatbot */
+    z-index: 9998;
+  }
+
+  /* When chatbot is open → hide scroll button */
+  .chatbot-open .scroll-top,
+  .chatbot-open #scrollTop,
+  .chatbot-open .back-to-top {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+
+  .launcher-text {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--chatbot-danger);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 3px solid white;
+    animation: bounce 2s infinite;
+  }
+
+  @keyframes bounce {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   CHAT WINDOW
+   ───────────────────────────────────────────────────────────────────── */
+
+  .chatbot-window {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 400px;
+    max-width: calc(100vw - 48px);
+    height: 600px;
+    max-height: calc(100vh - 100px);
+    background: white;
+    border-radius: var(--chatbot-radius);
+    box-shadow: var(--chatbot-shadow);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideInUp {
+    from {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .chatbot-window.open {
+    display: flex;
+  }
+
+  .chatbot-window.minimized {
+    height: 60px;
+    overflow: hidden;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   HEADER
+   ───────────────────────────────────────────────────────────────────── */
+
+  .chatbot-header {
+    background: linear-gradient(135deg, var(--chatbot-primary), var(--chatbot-secondary));
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bot-avatar-header {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    backdrop-filter: blur(10px);
+  }
+
+  .status-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: var(--chatbot-success);
+    border: 2px solid white;
+    border-radius: 50%;
+  }
+
+  .header-text h6 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .online-status {
+    font-size: 12px;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--chatbot-success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .header-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+
+  .header-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   QUICK ACTIONS
+   ───────────────────────────────────────────────────────────────────── */
+
+  .quick-actions-bar {
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+
+  .quick-actions-bar::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .quick-actions-bar::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 2px;
+  }
+
+  .quick-action-chip {
+    background: white;
+    border: 1px solid #e0e0e0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #333;
+  }
+
+  .quick-action-chip:hover {
+    background: var(--chatbot-primary);
+    color: white;
+    border-color: var(--chatbot-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .quick-action-chip i {
+    font-size: 16px;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   MESSAGES
+   ───────────────────────────────────────────────────────────────────── */
+
+  .chatbot-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+    scroll-behavior: smooth;
+  }
+
+  .chatbot-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .chatbot-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .chatbot-messages::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 3px;
+  }
+
+  .chatbot-messages::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+  }
+
+  .message-wrapper {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    animation: messageSlideIn 0.3s ease-out;
+  }
+
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .user-message {
+    flex-direction: row-reverse;
+  }
+
+  .message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .bot-message .message-avatar {
+    background: linear-gradient(135deg, var(--chatbot-primary), var(--chatbot-secondary));
+    color: white;
+  }
+
+  .user-message .message-avatar {
+    background: var(--chatbot-success);
+    color: white;
+  }
+
+  .user-message .message-avatar::before {
+    content: "👤";
+    font-size: 20px;
+  }
+
+  .message-content {
+    flex: 1;
+    max-width: 75%;
+  }
+
+  .user-message .message-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .message-bubble {
+    background: white;
+    padding: 12px 16px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    word-wrap: break-word;
+  }
+
+  .bot-message .message-bubble {
+    border-bottom-left-radius: 4px;
+  }
+
+  .user-message .message-bubble {
+    background: linear-gradient(135deg, var(--chatbot-primary), var(--chatbot-secondary));
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message-bubble.animate-in {
+    animation: bubblePop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes bubblePop {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .message-text p {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+
+  .message-text p:last-child {
+    margin-bottom: 0;
+  }
+
+  .greeting-text {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+  }
+
+  .feature-list li {
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  .feature-list i {
+    color: var(--chatbot-success);
+    font-size: 14px;
+  }
+
+  .message-meta {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .message-time {
+    font-size: 11px;
+    color: #999;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   TYPING INDICATOR
+   ───────────────────────────────────────────────────────────────────── */
+
+  .typing-indicator-container {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 16px;
+    background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+  }
+
+  .typing-bubble {
+    background: white;
+    padding: 12px 16px;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .typing-dots {
+    display: flex;
+    gap: 4px;
+  }
+
+  .typing-dots span {
+    width: 8px;
+    height: 8px;
+    background: var(--chatbot-primary);
+    border-radius: 50%;
+    animation: typingDot 1.4s infinite;
+  }
+
+  .typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typingDot {
+
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+
+    30% {
+      transform: translateY(-8px);
+      opacity: 1;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   SUGGESTED RESPONSES
+   ───────────────────────────────────────────────────────────────────── */
+
+  .suggested-responses {
+    padding: 12px 20px;
+    background: white;
+    border-top: 1px solid #e9ecef;
+    flex-shrink: 0;
+  }
+
+  .suggestions-label {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .suggestions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .suggestion-btn {
+    background: #f0f2f5;
+    border: 1px solid #e0e0e0;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #333;
+  }
+
+  .suggestion-btn:hover {
+    background: var(--chatbot-primary);
+    color: white;
+    border-color: var(--chatbot-primary);
+    transform: translateX(3px);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   INPUT AREA
+   ───────────────────────────────────────────────────────────────────── */
+
+  .chatbot-input-area {
+    background: white;
+    border-top: 1px solid #e9ecef;
+    padding: 16px;
+    flex-shrink: 0;
+  }
+
+  .input-form {
+    margin-bottom: 8px;
+  }
+
+  .chat-input {
+    border: none !important;
+    /* 🔥 removes black border */
+    outline: none !important;
+    /* 🔥 removes focus outline */
+    background: transparent;
+  }
+
+  .input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+    border: none;
+    /* 🔥 removed border */
+    border-radius: 24px;
+    padding: 6px 10px;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+    /* soft glow instead */
+  }
+
+  .input-container:focus-within {
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+  }
+
+  .input-btn {
+    background: none;
+    border: none;
+    color: #666;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 20px;
+  }
+
+  .input-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: var(--chatbot-primary);
+  }
+
+  .input-btn.recording {
+    color: var(--chatbot-danger);
+    animation: pulse 1s infinite;
+  }
+
+  .chat-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    color: #333;
+  }
+
+  .chat-input::placeholder {
+    color: #999;
+  }
+
+  .send-btn {
+    background: linear-gradient(135deg, var(--chatbot-primary), var(--chatbot-secondary));
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+  }
+
+  .send-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .send-btn:active {
+    transform: scale(0.95);
+  }
+
+  .send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .input-footer {
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .input-footer small {
+    font-size: 11px;
+    color: #999;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ───────────────────────────────────────────────────────────────────── */
+
+  @media (max-width: 480px) {
+    .chatbot-widget {
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .chatbot-window {
+      width: calc(100vw - 32px);
+      height: calc(100vh - 100px);
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .launcher-text {
+      display: none;
+    }
+
+    .chatbot-launcher {
+      padding: 14px;
+      border-radius: 50%;
+    }
+
+    .message-content {
+      max-width: 85%;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+   UTILITY CLASSES
+   ───────────────────────────────────────────────────────────────────── */
+
+  .hidden {
+    display: none !important;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .shake {
+    animation: shake 0.5s;
+  }
+
+  @keyframes shake {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    25% {
+      transform: translateX(-10px);
+    }
+
+    75% {
+      transform: translateX(10px);
+    }
+  }
+</style>
+
+<section class="page-title bg-1">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="block text-center">
+          <span class="text-white">What We Offer</span>
+          <h1 class="text-capitalize mb-5 text-lg">Our Services &amp; Departments</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Intro -->
+<section class="section pb-0">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7 text-center">
+        <div class="section-title">
+          <h2>Award-Winning Clinical Excellence</h2>
+          <div class="divider mx-auto my-4"></div>
+          <p>Marvel Hospitals offers a comprehensive range of specialties under one roof — from routine consultations to
+            complex surgeries — all delivered by nationally recognised specialists using the latest medical technology.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main Departments -->
+<section class="section service-2">
+  <div class="container">
+    <div class="row">
+
+      {% set departments = [
+      ('service-2.jpg', 'icofont-heart-beat-alt', '#e74c3c', 'Cardiology',
+      'Interventional cardiology, electrophysiology, heart failure management and preventive care with 95%+ success
+      rate.',
+      ['Angioplasty &amp; Stenting','Pacemaker Implantation','Echocardiography &amp; Stress Tests']),
+
+      ('service-1.jpg', 'icofont-brain-alt', '#9b59b6', 'Neurology &amp; Neurosurgery',
+      'Comprehensive neuro care covering stroke, epilepsy, Parkinson\'s disease, and minimally invasive brain &amp;
+      spine surgery.',
+      ['Stroke Unit (24/7 tPA ready)','Deep Brain Stimulation','Spine Surgery &amp; Rehabilitation']),
+
+      ('service-4.jpg', 'icofont-crutch', '#1a73e8', 'Orthopaedics &amp; Sports Medicine',
+      'Joint replacement, arthroscopic surgery, sports injury rehab, and complex fracture management using
+      robotic-assisted systems.',
+      ['Knee &amp; Hip Replacement','ACL &amp; Sports Injury Repair','Physiotherapy &amp; Rehab Centre']),
+
+      ('service-8.jpg', 'icofont-dna-alt-1', '#e91e63', 'Gynaecology &amp; Obstetrics',
+      'Complete women\'s health — prenatal care, high-risk pregnancy, minimally invasive gynaecological surgery, and
+      fertility treatment.',
+      ['High-Risk Pregnancy Unit','Laparoscopic Gynaecology','Fertility &amp; IVF Centre']),
+
+      ('service-6.jpg', 'icofont-doctor-alt', '#27ae60', 'General &amp; Internal Medicine',
+      'Diagnosis and management of diabetes, hypertension, respiratory illnesses, infectious diseases, and chronic
+      conditions.',
+      ['Diabetes &amp; Thyroid Management','Respiratory &amp; Allergy Clinic','Preventive Health Check-ups']),
+
+      ('service-3.jpg', 'icofont-tooth', '#f39c12', 'Dental Care',
+      'Orthodontics, dental implants, cosmetic dentistry, oral surgery, and painless root canal treatments by
+      experienced surgeons.',
+      ['Dental Implants &amp; Crowns','Orthodontics &amp; Clear Aligners','Teeth Whitening &amp; Veneers']),
+      ] %}
+
+      {% for img, icon, color, name, desc, bullets in departments %}
+      <div class="col-lg-4 col-md-6">
+        <div class="department-block mb-5">
+          <img src="{{ url_for('static', filename='images/service/' ~ img) }}" alt="{{ name }}" class="img-fluid w-100">
+          <div class="content">
+            <h4 class="mt-4 mb-2 title-color">
+              <i class="{{icon}} mr-2" style="--icon-color: {{color}};"></i>{{name}}
+            </h4>
+            <p class="mb-3">{{ desc }}</p>
+            <ul class="list-unstyled mb-3" style="font-size:.83rem;color:#666;line-height:1.9;">
+              {% for b in bullets %}
+              <li><i class="icofont-simple-right mr-1 text-primary"></i>{{ b }}</li>
+              {% endfor %}
+            </ul>
+            <a href="{{ url_for('public.appointment') }}" class="read-more">
+              Book Appointment <i class="icofont-simple-right ml-2"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+</section>
+
+<!-- Additional Services -->
+<section class="section service gray-bg">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7 text-center">
+        <div class="section-title">
+          <h2>More Specialised Services</h2>
+          <div class="divider mx-auto my-4"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      {% set extra = [
+      ('icofont-laboratory', 'NABL Laboratory', '1,500+ tests, home sample collection, results in 4–6 hours.
+      NABL-accredited with digital report delivery.'),
+      ('icofont-eye-alt', 'Ophthalmology', 'LASIK, cataract surgery, retina treatment, glaucoma management, and
+      paediatric eye care.'),
+      ('icofont-baby-face', 'Paediatrics', 'Child-friendly OPD, NICU, vaccination clinics, developmental assessments,
+      and 24/7 paediatric emergency.'),
+      ('icofont-radio-active','Radiology &amp; Imaging', '3-Tesla MRI, 256-slice CT, PET-CT, mammography, and 4D
+      ultrasound with same-day teleradiology.'),
+      ('icofont-heartbeat', 'Emergency &amp; Trauma', 'Level-1 trauma centre with 24/7 emergency bays, advanced life
+      support, and rapid response teams.'),
+      ('icofont-stretcher', 'Physiotherapy &amp; Rehab', 'Post-surgery rehab, sports recovery, neuro-physio,
+      occupational therapy, and speech therapy.'),
+      ] %}
+      {% for icon, name, desc in extra %}
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="{{ icon }} text-lg"></i>
+            <h4 class="mt-3 mb-3">{{ name }}</h4>
+          </div>
+          <div class="content">
+            <p class="mb-4">{{ desc }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section appoinment">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 text-center">
+        <h2 class="mb-3">Not Sure Which Department You Need?</h2>
+        <p class="mb-4">Our patient coordinators will assess your symptoms and direct you to the right specialist — at
+          no charge.</p>
+        <a href="{{ url_for('public.appointment') }}" class="btn btn-main-2 btn-round-full btn-icon mr-3">
+          Book Appointment <i class="icofont-simple-right ml-2"></i>
+        </a>
+        <a href="{{ url_for('common.register') }}" class="btn btn-outline-primary btn-round-full">
+          Register as Patient
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- Chatbot Floating Widget -->
+<div id="chatbotWidget" class="chatbot-widget">
+
+  <!-- Floating Button (Initially Visible) -->
+  <button class="chatbot-launcher" id="chatbotLauncher" onclick="toggleChatbot()">
+    <div class="launcher-icon">
+      <i class="icofont-robot"></i>
+      <span class="pulse-ring"></span>
+    </div>
+    <span class="launcher-text">Need Help?</span>
+    <span class="notification-badge" id="notificationBadge">1</span>
+  </button>
+
+  <!-- Chat Window (Hidden Initially) -->
+  <div class="chatbot-window" id="chatbotWindow">
+
+    <!-- Header -->
+    <div class="chatbot-header">
+      <div class="header-content">
+        <div class="bot-avatar-header">
+          <i class="icofont-robot"></i>
+          <span class="status-indicator"></span>
+        </div>
+        <div class="header-text">
+          <h6 class="mb-0">Marvel Assistant</h6>
+          <small class="online-status">
+            <span class="pulse-dot"></span> Online
+          </small>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" onclick="minimizeChatbot()" title="Minimize">
+          <i class="icofont-minus"></i>
+        </button>
+        <button class="header-btn" onclick="resetChat()" title="Reset Chat">
+          <i class="icofont-refresh"></i>
+        </button>
+        <button class="header-btn" onclick="toggleChatbot()" title="Close">
+          <i class="icofont-close"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <div class="quick-actions-bar" id="quickActionsBar">
+      <button class="quick-action-chip" onclick="quickMessage('book appointment')">
+        <i class="icofont-calendar"></i>
+        <span>Book</span>
+      </button>
+      <button class="quick-action-chip" onclick="quickMessage('emergency')">
+        <i class="icofont-ambulance"></i>
+        <span>Emergency</span>
+      </button>
+      <button class="quick-action-chip" onclick="quickMessage('services')">
+        <i class="icofont-hospital"></i>
+        <span>Services</span>
+      </button>
+      <button class="quick-action-chip" onclick="quickMessage('doctors')">
+        <i class="icofont-doctor"></i>
+        <span>Doctors</span>
+      </button>
+    </div>
+
+    <!-- Messages Container -->
+    <div class="chatbot-messages" id="chatbotMessages">
+      <!-- Welcome Message -->
+      <div class="message-wrapper bot-message" data-message-id="welcome">
+        <div class="message-avatar">
+          <i class="icofont-robot"></i>
+        </div>
+        <div class="message-content">
+          <div class="message-bubble animate-in">
+            <div class="message-text">
+              <p class="greeting-text">Hello! 👋 I'm your Marvel AI Assistant</p>
+              <p class="mb-2">I can help you with:</p>
+              <ul class="feature-list">
+                <li><i class="icofont-check"></i> Book appointments</li>
+                <li><i class="icofont-check"></i> Find doctors & services</li>
+                <li><i class="icofont-check"></i> Emergency guidance</li>
+                <li><i class="icofont-check"></i> Get health information</li>
+              </ul>
+              <p class="mb-0">How can I assist you today?</p>
+            </div>
+          </div>
+          <div class="message-meta">
+            <span class="message-time">Just now</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator-container" id="typingIndicator" style="display: none;">
+      <div class="message-avatar">
+        <i class="icofont-robot"></i>
+      </div>
+      <div class="typing-bubble">
+        <div class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggested Responses -->
+    <div class="suggested-responses" id="suggestedResponses">
+      <div class="suggestions-label">Suggested:</div>
+      <div class="suggestions-container">
+        <button class="suggestion-btn" onclick="sendSuggestion('What are your services?')">
+          What are your services?
+        </button>
+        <button class="suggestion-btn" onclick="sendSuggestion('Book an appointment')">
+          Book an appointment
+        </button>
+        <button class="suggestion-btn" onclick="sendSuggestion('Emergency contact')">
+          Emergency contact
+        </button>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="chatbot-input-area">
+      <form class="input-form" id="chatbotForm">
+        <div class="input-container">
+          <button type="button" class="input-btn emoji-btn" onclick="toggleEmojiPicker()" title="Emoji">
+            🙂
+          </button>
+
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." autocomplete="off"
+            maxlength="500">
+
+          <button type="button" class="input-btn" id="voiceBtn" onclick="startVoiceInput()" title="Voice Input">
+            <i class="icofont-mic"></i>
+          </button>
+
+          <button type="submit" class="send-btn" id="sendBtn">
+            <i class="icofont-paper-plane"></i>
+          </button>
+        </div>
+      </form>
+
+      <div class="input-footer">
+        <small class="text-muted">
+          <i class="icofont-info-circle"></i>
+          Powered by Marvel AI • <span id="charCount">0</span>/500
+        </small>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Chatbot Styles -->
+<script>
+  const APPOINTMENT_URL = "{{ url_for('public.appointment') }}";
+</script>
+
+<script>
+  /* ═══════════════════════════════════════════════════════════════════════
+     ADVANCED CHATBOT JAVASCRIPT WITH NLP
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  // Configuration
+  const CHATBOT_CONFIG = {
+    apiEndpoint: '/api/chatbot',  // Your backend endpoint
+    supportPhone: '+91-7569486938',
+    supportEmail: 'support@marvelhospitals.com',
+    enableVoice: true,
+    enablePersistence: false,
+    maxMessageLength: 500
+  };
+
+  // State Management
+  const chatbotState = {
+    isOpen: false,
+    isMinimized: false,
+    messageCount: 0,
+    conversationId: null,
+    userContext: {},
+    messageHistory: []
+  };
+
+  // NLP Intent Patterns
+  const intentPatterns = {
+    greeting: /^(hi|hello|hey|good morning|good evening|good afternoon|greetings)/i,
+    farewell: /^(bye|goodbye|see you|thanks|thank you|thats all)/i,
+    appointment: /(book|schedule|appointment|consultation|visit|see doctor)/i,
+    emergency: /(emergency|urgent|critical|help|ambulance|911|108)/i,
+    services: /(service|department|facility|treatment|speciality|specialty)/i,
+    doctors: /(doctor|doctors|physician|specialist|surgeon|consultant)/i,
+    location: /(where|location|address|direction|map|how to reach)/i,
+    hours: /(hour|time|open|close|timing|schedule|when)/i,
+    cost: /(cost|price|fee|charge|bill|payment|insurance)/i,
+    reports: /(report|result|test|lab|xray|scan|mri)/i,
+    prescription: /(medicine|prescription|drug|medication|pharmacy)/i
+  };
+
+  // Knowledge Base (Enhanced)
+  const knowledgeBase = {
+    departments: {
+      cardiology: {
+        name: 'Cardiology',
+        keywords: ['heart', 'cardiac', 'cardio', 'chest pain', 'bp', 'blood pressure'],
+        services: ['Angioplasty', 'Pacemaker', 'ECG', 'Echo'],
+        doctors: ['Dr. Rajesh Kumar', 'Dr. Priya Sharma']
+      },
+      neurology: {
+        name: 'Neurology & Neurosurgery',
+        keywords: ['brain', 'neuro', 'headache', 'migraine', 'stroke', 'seizure'],
+        services: ['Brain Surgery', 'Spine Surgery', 'Stroke Care'],
+        doctors: ['Dr. Amit Patel', 'Dr. Sunita Reddy']
+      },
+      orthopedics: {
+        name: 'Orthopaedics',
+        keywords: ['bone', 'joint', 'fracture', 'knee', 'hip', 'back pain', 'spine'],
+        services: ['Joint Replacement', 'Sports Injury', 'Fracture Care'],
+        doctors: ['Dr. Vikram Singh', 'Dr. Kavita Mehta']
+      },
+      gynecology: {
+        name: 'Gynaecology & Obstetrics',
+        keywords: ['pregnancy', 'women', 'gynec', 'obstetrics', 'delivery', 'maternity'],
+        services: ['Prenatal Care', 'High-Risk Pregnancy', 'Fertility'],
+        doctors: ['Dr. Sneha Desai', 'Dr. Ritu Agarwal']
+      },
+      pediatrics: {
+        name: 'Pediatrics',
+        keywords: ['child', 'children', 'kids', 'baby', 'infant', 'vaccination'],
+        services: ['Child Care', 'NICU', 'Vaccination'],
+        doctors: ['Dr. Ramesh Yadav', 'Dr. Anita Joshi']
+      }
+    },
+
+    responses: {
+      greeting: [
+        "Hello! 👋 Welcome to Marvel. How can I assist you today?",
+        "Hi there! I'm here to help. What can I do for you?",
+        "Good day! How may I help you with your healthcare needs?"
+      ],
+      farewell: [
+        "Thank you for chatting! Take care and stay healthy! 🌟",
+        "Goodbye! Feel free to reach out anytime. Have a great day!",
+        "It was nice helping you. Wishing you good health! 👋"
+      ],
+      default: [
+        "I'm not quite sure about that. Could you rephrase your question?",
+        "Let me connect you with our team for better assistance.",
+        "I didn't quite catch that. Can you try asking in a different way?"
+      ]
+    }
+  };
+
+  // Initialize Chatbot
+  document.addEventListener('DOMContentLoaded', function () {
+    initializeChatbot();
+    loadChatHistory();
+    setupEventListeners();
+  });
+
+  function initializeChatbot() {
+    // Generate conversation ID
+    chatbotState.conversationId = generateUUID();
+
+    // Show initial notification after 3 seconds
+    setTimeout(() => {
+      if (!chatbotState.isOpen) {
+        animateNotificationBadge();
+      }
+    }, 3000);
+
+    // Setup input character counter
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+      chatInput.addEventListener('input', updateCharCount);
+    }
+  }
+
+  function setupEventListeners() {
+    // Prevent form submission default
+    const form = document.getElementById('chatbotForm');
+    if (form) {
+      form.addEventListener('submit', sendMessage);
+    }
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatbotState.isOpen) {
+        toggleChatbot();
+      }
+    });
+  }
+
+  // Toggle Chatbot
+  function toggleChatbot() {
+    chatbotState.isOpen = !chatbotState.isOpen;
+
+    const launcher = document.getElementById('chatbotLauncher');
+    const windowEl = document.getElementById('chatbotWindow');
+    const badge = document.getElementById('notificationBadge');
+
+    if (chatbotState.isOpen) {
+      launcher.style.display = 'none';
+      windowEl.classList.add('open');
+      badge.classList.add('hidden');
+      resetChat();
+
+      setTimeout(() => {
+        document.getElementById('chatInput')?.focus();
+      }, 300);
+
+      markMessagesAsSeen();
+    } else {
+      launcher.style.display = 'flex';
+      windowEl.classList.remove('open');
+      chatbotState.isMinimized = false;
+    }
+
+    // 🔥 ADD THIS LINE
+    handleScrollButtonVisibility();
+  }
+
+
+  // Minimize Chatbot
+  function minimizeChatbot() {
+    chatbotState.isMinimized = !chatbotState.isMinimized;
+    const window = document.getElementById('chatbotWindow');
+    window.classList.toggle('minimized');
+  }
+
+  // Send Message
+  function sendMessage(event) {
+    if (event) event.preventDefault();
+    else return false;
+
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    // Add user message
+    addMessage(message, 'user');
+    input.value = '';
+    updateCharCount();
+
+    // Hide suggestions
+    hideSuggestions();
+
+    // Show typing indicator
+    showTypingIndicator();
+
+    // Process with NLP and respond
+    setTimeout(() => {
+      processMessageWithNLP(message);
+      hideTypingIndicator();
+    }, 1000 + Math.random() * 1000);
+  }
+
+  // Process Message with NLP
+  async function processMessageWithNLP(message) {
+
+  const lowerMsg = message.toLowerCase();
+  const lastIntent = chatbotState.userContext.lastIntent || null;
+const intent = detectIntent(lowerMsg);
+
+// 🔥 SPECIAL CONTEXT HANDLING
+if (
+  (lowerMsg.includes("department") || lowerMsg.includes("each")) &&
+  lastIntent === "doctors"
+) {
+  const response = generateDoctorsByDepartment();
+  addMessage(response, 'bot');
+  return;
+}
+
+function generateDoctorsByDepartment() {
+  let html = '<p><strong>Doctors by Department:</strong></p>';
+
+  for (const dept of Object.values(knowledgeBase.departments)) {
+    html += `
+      <div class="dept-card">
+        <strong>${dept.name}</strong><br>
+        ${dept.doctors.map(d => `• ${d}`).join('<br>')}
+      </div>
+    `;
+  }
+
+  return html;
+}
+
+  // ✅ Rule-based (fast actions)
+  if (intent !== 'unknown') {
+    const response = generateResponse(intent, lowerMsg);
+    addMessage(response, 'bot');
+  } 
+  
+  // 🔥 AI fallback
+  else {
+    try {
+      const res = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+      let reply = data.reply || "Hmm... I didn’t get that. Can you rephrase?";
+
+      // 🔥 ACTION HANDLING
+      if (reply.includes("ACTION:BOOK_APPOINTMENT")) {
+        window.location.href = "/appointment";
+        return;
+      }
+
+      if (reply.includes("ACTION:VIEW_BILL")) {
+        window.location.href = "/billing";
+        return;
+      }
+
+      addMessage(reply, 'bot');
+
+    } catch (err) {
+      addMessage("Something went wrong.", 'bot');
+    }
+  }
+}
+
+  function resetChat() {
+    const container = document.getElementById('chatbotMessages');
+
+    // Keep only welcome message
+    container.innerHTML = `
+        <div class="message-wrapper bot-message">
+            <div class="message-avatar">
+                <i class="icofont-robot"></i>
+            </div>
+            <div class="message-content">
+                <div class="message-bubble animate-in">
+                    <div class="message-text">
+                        <p class="greeting-text">Hello! 👋 I'm your Marvel AI Assistant</p>
+                        <p>How can I assist you today?</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    chatbotState.messageHistory = [];
+    chatbotState.messageCount = 0;
+
+    localStorage.removeItem('hms_chat_history');
+}
+
+  // Detect Intent using NLP
+  function detectIntent(message) {
+    for (const [intent, pattern] of Object.entries(intentPatterns)) {
+      if (pattern.test(message)) {
+        return intent;
+      }
+    }
+
+    // Check for department keywords
+    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
+      if (dept.keywords.some(keyword => message.includes(keyword))) {
+        return 'department_' + key;
+      }
+    }
+
+    return 'unknown';
+  }
+
+  // Generate Response
+  function generateResponse(intent, message) {
+    let response = '';
+
+    switch (intent) {
+      case 'greeting':
+        response = getRandomResponse(knowledgeBase.responses.greeting);
+        break;
+
+      case 'farewell':
+        response = getRandomResponse(knowledgeBase.responses.farewell);
+        break;
+
+      case 'appointment':
+        response = generateAppointmentResponse();
+        break;
+
+      case 'emergency':
+        response = generateEmergencyResponse();
+        break;
+
+      case 'services':
+        response = generateServicesResponse();
+        break;
+
+      case 'doctors':
+        response = generateDoctorsResponse();
+        break;
+
+      case 'location':
+        response = generateLocationResponse();
+        break;
+
+      case 'hours':
+        response = generateHoursResponse();
+        break;
+
+      case 'cost':
+        response = generateCostResponse();
+        break;
+
+      default:
+        if (intent.startsWith('department_')) {
+          const deptKey = intent.replace('department_', '');
+          response = generateDepartmentResponse(deptKey);
+        } else {
+          response = getRandomResponse(knowledgeBase.responses.default) +
+            `<br><br>${generateHelpButtons()}`;
+        }
+    }
+
+    return response;
+  }
+
+  // Response Generators
+  function generateAppointmentResponse() {
+    return `
+        <p><strong>Book an Appointment</strong></p>
+        <p>I can help you schedule an appointment. You can:</p>
+        <div class="response-options">
+            <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+                <i class="icofont-calendar"></i> Book Online Now
+            </button>
+            <button class="option-btn" onclick="callHospital()">
+                <i class="icofont-phone"></i> Call ${CHATBOT_CONFIG.supportPhone}
+            </button>
+        </div>
+        <p><small>💡 Online booking is available 24/7</small></p>
+    `;
+  }
+
+  function generateEmergencyResponse() {
+    return `
+        <div class="alert-message emergency">
+            <p><strong>🚨 EMERGENCY</strong></p>
+            <p><strong>24/7 Emergency Services Available</strong></p>
+            <p>📞 Emergency: <strong>${CHATBOT_CONFIG.supportPhone}</strong></p>
+            <p>🚑 Ambulance: <strong>108</strong></p>
+            <p class="emergency-text">For life-threatening emergencies, call 108 immediately!</p>
+            <button class="option-btn emergency-btn" onclick="callEmergency()">
+                <i class="icofont-phone"></i> Call Emergency Now
+            </button>
+        </div>
+    `;
+  }
+
+  function generateServicesResponse() {
+    let html = '<p><strong>Our Departments & Services:</strong></p>';
+
+    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
+      html += `
+            <div class="dept-card" onclick="quickMessage('tell me about ${dept.name}')">
+                <strong>${dept.name}</strong>
+                <small>${dept.services.join(', ')}</small>
+            </div>
+        `;
+    }
+
+    return html;
+  }
+
+  function generateDoctorsResponse() {
+    let html = '<p><strong>Our Specialist Doctors:</strong></p>';
+
+    for (const dept of Object.values(knowledgeBase.departments)) {
+      dept.doctors.forEach(doctor => {
+        html += `
+                <div class="doctor-card">
+                    <i class="icofont-doctor-alt"></i>
+                    <div>
+                        <strong>${doctor}</strong>
+                        <small>${dept.name}</small>
+                    </div>
+                </div>
+            `;
+      });
+    }
+
+    return html;
+  }
+
+  function handleScrollButtonVisibility() {
+    const scrollBtn = document.querySelector(
+      '.scroll-top, #scrollTop, .back-to-top, .backtop, .scrollUp, .scroll-up'
+    );
+
+    if (!scrollBtn) return;
+
+    if (chatbotState.isOpen) {
+      scrollBtn.style.display = 'none';
+    } else {
+      scrollBtn.style.display = 'block';
+    }
+  }
+
+  function generateLocationResponse() {
+    return `
+        <p><strong>📍 Our Location</strong></p>
+        <p>Marvel Hospitals<br>
+        123 Healthcare Avenue<br>
+        Medical District, City - 500001</p>
+        <button class="option-btn" onclick="window.open('https://maps.google.com', '_blank')">
+            <i class="icofont-location-pin"></i> Get Directions
+        </button>
+    `;
+  }
+
+  function generateHoursResponse() {
+    return `
+        <p><strong>⏰ Operating Hours</strong></p>
+        <p><strong>OPD:</strong> Mon-Sat, 8 AM - 8 PM</p>
+        <p><strong>Emergency:</strong> 24/7</p>
+        <p><strong>Pharmacy:</strong> 24/7</p>
+        <p><strong>Lab:</strong> Mon-Sat, 7 AM - 9 PM</p>
+    `;
+  }
+
+  function generateCostResponse() {
+    return `
+        <p><strong>💰 Consultation Fees</strong></p>
+        <p>Consultation fees vary by specialty:</p>
+        <ul>
+            <li>General Medicine: ₹500</li>
+            <li>Specialist: ₹800-1200</li>
+            <li>Super Specialist: ₹1500-2000</li>
+        </ul>
+        <p><small>💡 We accept all major insurance providers</small></p>
+    `;
+  }
+
+  function generateDepartmentResponse(deptKey) {
+    const dept = knowledgeBase.departments[deptKey];
+
+    return `
+        <p><strong>${dept.name}</strong></p>
+        <p><strong>Services:</strong></p>
+        <ul>
+            ${dept.services.map(s => `<li>${s}</li>`).join('')}
+        </ul>
+        <p><strong>Our Doctors:</strong> ${dept.doctors.join(', ')}</p>
+        <button class="option-btn" onclick="quickMessage('book appointment for ${dept.name}')">
+            <i class="icofont-calendar"></i> Book Appointment
+        </button>
+    `;
+  }
+
+  function generateHelpButtons() {
+    return `
+        <div class="help-buttons">
+            <button class="option-btn" onclick="quickMessage('our services')">
+                <i class="icofont-hospital"></i> Services
+            </button>
+            <button class="option-btn" onclick="quickMessage('book appointment')">
+                <i class="icofont-calendar"></i> Book
+            </button>
+            <button class="option-btn" onclick="contactSupport()">
+                <i class="icofont-phone"></i> Contact
+            </button>
+        </div>
+    `;
+  }
+
+  // Add Message to Chat
+  function addMessage(text, sender) {
+    const messagesContainer = document.getElementById('chatbotMessages');
+    const time = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const messageId = generateUUID();
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message-wrapper ${sender}-message`;
+    messageDiv.dataset.messageId = messageId;
+
+    const avatarIcon = sender === 'bot' ? 'icofont-robot' : '';
+
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            ${sender === 'bot' ? `<i class="${avatarIcon}"></i>` : ''}
+        </div>
+        <div class="message-content">
+            <div class="message-bubble animate-in">
+                <div class="message-text">
+                    ${sender === 'user' ? escapeHTML(text) : text}
+                </div>
+            </div>
+            <div class="message-meta">
+                <span class="message-time">${time}</span>
+            </div>
+        </div>
+    `;
+
+    messagesContainer.appendChild(messageDiv);
+    scrollToBottom();
+
+    chatbotState.messageCount++;
+    chatbotState.messageHistory.push({ sender, text, time, id: messageId });
+  }
+
+  // Quick Message
+  function quickMessage(message) {
+    document.getElementById('chatInput').value = message;
+    sendMessage({ preventDefault: () => { } });
+  }
+
+  // Send Suggestion
+  function sendSuggestion(text) {
+    quickMessage(text);
+  }
+
+  // Utility Functions
+  function showTypingIndicator() {
+    document.getElementById('typingIndicator').style.display = 'flex';
+    scrollToBottom();
+  }
+
+  function hideTypingIndicator() {
+    document.getElementById('typingIndicator').style.display = 'none';
+  }
+
+  function scrollToBottom() {
+    const container = document.getElementById('chatbotMessages');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function updateCharCount() {
+    const input = document.getElementById('chatInput');
+    const counter = document.getElementById('charCount');
+    if (input && counter) {
+      counter.textContent = input.value.length;
+    }
+  }
+
+  function hideSuggestions() {
+    document.getElementById('suggestedResponses').style.display = 'none';
+  }
+
+  function animateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    badge.classList.remove('hidden');
+    badge.classList.add('bounce');
+  }
+
+  function markMessagesAsSeen() {
+    document.getElementById('notificationBadge').classList.add('hidden');
+  }
+
+  function escapeHTML(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function getRandomResponse(responses) {
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function updateContext(message, intent) {
+    chatbotState.userContext.lastIntent = intent;
+    chatbotState.userContext.lastMessage = message;
+    chatbotState.userContext.timestamp = new Date().toISOString();
+  }
+
+  // Voice Input
+  function startVoiceInput() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Voice input not supported in this browser');
+      return;
+    }
+
+    const recognition = new webkitSpeechRecognition();
+    const voiceBtn = document.getElementById('voiceBtn');
+
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = function () {
+      voiceBtn.classList.add('recording');
+      voiceBtn.innerHTML = '<i class="icofont-stop"></i>';
+    };
+
+    recognition.onresult = function (event) {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('chatInput').value = transcript;
+    };
+
+    recognition.onend = function () {
+      voiceBtn.classList.remove('recording');
+      voiceBtn.innerHTML = '<i class="icofont-mic"></i>';
+    };
+
+    recognition.onerror = function () {
+      voiceBtn.classList.remove('recording');
+      voiceBtn.innerHTML = '<i class="icofont-mic"></i>';
+    };
+
+    recognition.start();
+  }
+
+  // Contact Functions
+  function callHospital() {
+    window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`;
+  }
+
+  function callEmergency() {
+    if (confirm(`Call Emergency Helpline ${CHATBOT_CONFIG.supportPhone}?`)) {
+      window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`;
+    }
+  }
+
+  function contactSupport() {
+    const response = `
+        <p><strong>Contact Support:</strong></p>
+        <p>📞 Phone: ${CHATBOT_CONFIG.supportPhone}</p>
+        <p>📧 Email: ${CHATBOT_CONFIG.supportEmail}</p>
+        <p>💬 WhatsApp: ${CHATBOT_CONFIG.supportPhone}</p>
+        <button class="option-btn" onclick="callHospital()">
+            <i class="icofont-phone"></i> Call Now
+        </button>
+    `;
+    addMessage(response, 'bot');
+  }
+
+  // Chat Persistence
+  function saveChatHistory() {
+    if (CHATBOT_CONFIG.enablePersistence) {
+      localStorage.setItem('hms_chat_history', JSON.stringify(chatbotState.messageHistory));
+    }
+  }
+
+  function loadChatHistory() {
+    if (CHATBOT_CONFIG.enablePersistence) {
+      const saved = localStorage.getItem('hms_chat_history');
+      if (saved) {
+        chatbotState.messageHistory = JSON.parse(saved);
+
+        chatbotState.messageHistory.forEach(msg => {
+          addMessage(msg.text, msg.sender);
+        });
+      }
+    }
+  }
+
+  function toggleEmojiPicker() {
+    // Placeholder for emoji picker functionality
+    alert('Emoji picker coming soon!');
+  }
+
+  // Export for debugging
+  window.chatbotDebug = {
+    state: chatbotState,
+    config: CHATBOT_CONFIG,
+    knowledge: knowledgeBase
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    handleScrollButtonVisibility();
+    localStorage.removeItem('hms_chat_history');
+  });
+
+  chatbotState.userContext.lastIntent = intent;
+chatbotState.userContext.lastMessage = lowerMsg;
+
+</script>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends "common/base.html" %}
+{% block title %}Billing — Auditor View{% endblock %}
+{% block page_heading %}Billing{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link active"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;font-size:.73rem;padding:.3rem .7rem">
+    <i class="bi bi-eye me-1"></i>View & Filter Only — No Edits Permitted
+  </span>
+  <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="exportCSV()">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </button>
+</div>
+
+<!-- KPI Row -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#e8f0fe;color:#1a73e8"><i class="bi bi-receipt"></i></div>
+      <div><div class="stat-label">Total Billed</div><div class="stat-value" id="kpiBilled">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#d1fae5;color:#059669"><i class="bi bi-cash-stack"></i></div>
+      <div><div class="stat-label">Collected</div><div class="stat-value" id="kpiCollected">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fef3c7;color:#f59e0b"><i class="bi bi-hourglass-split"></i></div>
+      <div><div class="stat-label">Pending Balance</div><div class="stat-value" id="kpiPending">—</div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="hms-card p-3 d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#fee2e2;color:#e11d48"><i class="bi bi-exclamation-circle-fill"></i></div>
+      <div><div class="stat-label">Overdue Bills</div><div class="stat-value" id="kpiOverdue">—</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar d-flex gap-2 flex-wrap mb-3 align-items-end">
+
+  <!-- Search -->
+  <div class="input-group input-group-sm" style="max-width:240px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" id="searchInput" class="form-control" placeholder="Search patient…">
+  </div>
+
+  <!-- Status -->
+  <div class="input-group input-group-sm" style="max-width:170px">
+    <span class="input-group-text">Status</span>
+    <select id="statusFilter" class="form-select">
+      <option value="">All</option>
+      <option>Pending</option>
+      <option>Partial</option>
+      <option>Paid</option>
+    </select>
+  </div>
+
+  <!-- From -->
+  <div class="input-group input-group-sm" style="max-width:170px">
+    <span class="input-group-text">From</span>
+    <input type="date" id="dateFrom" class="form-control">
+  </div>
+
+  <!-- To -->
+  <div class="input-group input-group-sm" style="max-width:170px">
+    <span class="input-group-text">To</span>
+    <input type="date" id="dateTo" class="form-control">
+  </div>
+
+  <!-- Buttons -->
+  <button class="btn btn-sm btn-hms-primary" onclick="loadBills(1)">
+    <i class="bi bi-search me-1"></i>Filter
+  </button>
+
+  <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
+    Reset
+  </button>
+
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>Bill #</th><th>Patient</th><th>Total</th><th>Paid</th>
+          <th>Balance</th><th>Status</th><th>Date</th><th>Notes</th>
+        </tr></thead>
+        <tbody id="billsBody">
+          <tr><td colspan="8" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="billsCount"></span>
+      <div id="billsPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function fmt(n) {
+  n = parseFloat(n) || 0;
+  if (n >= 1e5) return '₹' + (n/1e5).toFixed(1) + 'L';
+  return '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+
+function statusBadge(s) {
+  const m = {Paid:'success', Pending:'warning', Partial:'info'};
+  return `<span class="badge bg-${m[s]||'secondary'}-subtle text-${m[s]||'secondary'} fw-bold">${s||'—'}</span>`;
+}
+
+function clearFilters() {
+  ['searchInput','statusFilter','dateFrom','dateTo'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  loadBills(1);
+}
+
+function exportCSV() {
+  const qs = new URLSearchParams({type:'billing'});
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+  if (from) qs.append('date_from', from);
+  if (to)   qs.append('date_to', to);
+  window.location.href = '/auditor/api/export?' + qs;
+}
+
+async function loadBills(page=1) {
+  document.getElementById('billsBody').innerHTML =
+    `<tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const search = document.getElementById('searchInput').value;
+  const status = document.getElementById('statusFilter').value;
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const qs = new URLSearchParams({page});
+  if (search) qs.append('search', search);
+  if (status) qs.append('status', status);
+  if (from)   qs.append('date_from', from);
+  if (to)     qs.append('date_to', to);
+
+  try {
+    const d = await apiRequest('/auditor/api/bills?' + qs);
+
+    if (d.kpi) {
+      document.getElementById('kpiBilled').textContent    = fmt(d.kpi.total_billed);
+      document.getElementById('kpiCollected').textContent = fmt(d.kpi.collected);
+      document.getElementById('kpiPending').textContent   = fmt(d.kpi.pending);
+      document.getElementById('kpiOverdue').textContent   = d.kpi.overdue ?? '—';
+    }
+
+    if (!d.items?.length) {
+      document.getElementById('billsBody').innerHTML =
+        `<tr><td colspan="8" class="text-center py-4 text-muted">No bills found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('billsBody').innerHTML = d.items.map(b => `
+      <tr>
+        <td><strong class="text-primary">BL-${String(b.id).padStart(4,'0')}</strong></td>
+        <td>${b.patient}</td>
+        <td>${fmt(b.total)}</td>
+        <td class="text-success fw-bold">${fmt(b.paid)}</td>
+        <td class="${parseFloat(b.balance)>0?'text-danger fw-bold':''}">${fmt(b.balance)}</td>
+        <td>${statusBadge(b.status)}</td>
+        <td>${b.date||'—'}</td>
+        <td><span class="text-muted small">${b.notes||'—'}</span></td>
+      </tr>`).join('');
+
+    document.getElementById('billsCount').textContent = `Showing ${d.items.length} of ${d.total} records`;
+    renderPagination('billsPagination', page, d.total_pages, loadBills);
+  } catch(e) { console.error(e); }
+}
+
+let st;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(st); st = setTimeout(() => loadBills(1), 400);
+});
+
+loadBills(1);
+</script>
+{% endblock %}

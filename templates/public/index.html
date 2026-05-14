@@ -1,0 +1,356 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Home{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero Banner ─────────────────────────────────────────────── -->
+<section class="banner">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-6 col-md-12 col-xl-7">
+        <div class="block">
+          <div class="divider mb-3"></div>
+          <span class="text-uppercase text-sm letter-spacing">Total Health Care Solution</span>
+          <h1 class="mb-3 mt-3">Your Most Trusted Health Partner in Hyderabad</h1>
+          <p class="mb-4 pr-5">Marvel Hospitals brings world-class medical expertise, state-of-the-art technology, and compassionate care together under one roof. Your health is our mission.</p>
+          <div class="btn-container">
+            <a href="{{ url_for('public.appointment') }}" class="btn btn-main-2 btn-icon btn-round-full">
+              Book Appointment <i class="icofont-simple-right ml-2"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Feature Strip ───────────────────────────────────────────── -->
+<section class="features">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-12">
+        <div class="feature-block d-lg-flex">
+
+          <div class="feature-item mb-5 mb-lg-0">
+            <div class="feature-icon mb-4"><i class="icofont-surgeon-alt"></i></div>
+            <span>24 Hours Service</span>
+            <h4 class="mb-3">Online Appointment</h4>
+            <p class="mb-4">Book with any of our 45+ specialists anytime from anywhere. Same-day slots available for urgent cases.</p>
+            <a href="{{ url_for('public.appointment') }}" class="btn btn-main btn-round-full">Make an Appointment</a>
+          </div>
+
+          <div class="feature-item mb-5 mb-lg-0">
+            <div class="feature-icon mb-4"><i class="icofont-ui-clock"></i></div>
+            <span>Timing Schedule</span>
+            <h4 class="mb-3">Working Hours</h4>
+            <ul class="w-hours list-unstyled">
+              <li class="d-flex justify-content-between">Mon – Fri : <span>08:00 – 20:00</span></li>
+              <li class="d-flex justify-content-between">Saturday  : <span>09:00 – 18:00</span></li>
+              <li class="d-flex justify-content-between">Sunday    : <span>10:00 – 14:00</span></li>
+            </ul>
+          </div>
+
+          <div class="feature-item mb-5 mb-lg-0">
+            <div class="feature-icon mb-4"><i class="icofont-support"></i></div>
+            <span>Emergency Cases</span>
+            <h4 class="mb-3">1800-MARVEL-01</h4>
+            <p>Round-the-clock emergency care. Our trauma team is always on standby. Call for immediate assistance.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── About Section ───────────────────────────────────────────── -->
+<section class="section about">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-4 col-sm-6">
+        <div class="about-img">
+          <img src="{{ url_for('static', filename='images/about/img-1.jpg') }}" alt="Marvel Hospitals Doctors" class="img-fluid">
+          <img src="{{ url_for('static', filename='images/about/img-2.jpg') }}" alt="Marvel Hospitals Care" class="img-fluid mt-4">
+        </div>
+      </div>
+      <div class="col-lg-4 col-sm-6">
+        <div class="about-img mt-4 mt-lg-0">
+          <img src="{{ url_for('static', filename='images/about/img-3.jpg') }}" alt="Marvel Hospitals ICU" class="img-fluid">
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="about-content pl-4 mt-4 mt-lg-0">
+          <h2 class="title-color">Personal Care &amp; Healthy Living</h2>
+          <p class="mt-4 mb-5">Marvel Hospitals provides the best-in-class medical services backed by a dedicated team of over 45 specialist doctors, modern diagnostic labs, and 24/7 patient support since 2005.</p>
+          <a href="{{ url_for('public.services') }}" class="btn btn-main-2 btn-round-full btn-icon">
+            Our Services <i class="icofont-simple-right ml-3"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Counters ─────────────────────────────────────────────────── -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta position-relative">
+      <div class="row">
+
+        <!-- Patients -->
+        <div class="col-lg-4 col-md-6 col-sm-6">
+          <div class="counter-stat text-center">
+            <i class="icofont-doctor" style="font-size: 40px;"></i>
+
+            <span class="h3 counter"
+                  data-count="{{ stats.patients }}">
+              {{ (stats.patients // 1000) }}
+            </span>k
+
+            <p>Happy Patients</p>
+          </div>
+        </div>
+
+        <!-- Doctors -->
+        <div class="col-lg-4 col-md-6 col-sm-6">
+          <div class="counter-stat text-center">
+            <i class="icofont-stethoscope" style="font-size: 40px;"></i>
+
+            <span class="h3 counter"
+                  data-count="{{ stats.doctors }}">
+              {{ stats.doctors }}
+            </span>+
+
+            <p>Expert Doctors</p>
+          </div>
+        </div>
+
+        <!-- Staff -->
+        <div class="col-lg-4 col-md-6 col-sm-6">
+          <div class="counter-stat text-center">
+            <i class="icofont-users-alt-4" style="font-size: 40px;"></i>
+
+            <span class="h3 counter"
+                  data-count="{{ stats.staff }}">
+              {{ stats.staff }}
+            </span>+
+
+            <p>Hospital Staff</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Services Grid ───────────────────────────────────────────── -->
+<section class="section service gray-bg">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7 text-center">
+        <div class="section-title">
+          <h2>Award-Winning Patient Care</h2>
+          <div class="divider mx-auto my-4"></div>
+          <p>Marvel Hospitals has been recognised nationally for excellence in patient outcomes, safety protocols, and compassionate care across all specialties.</p>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-heart-beat-alt text-lg"></i>
+            <h4 class="mt-3 mb-3">Cardiology</h4>
+          </div>
+          <div class="content"><p class="mb-4">Interventional cardiology, electrophysiology, and heart failure management with 95%+ success rate.</p></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-brain-alt text-lg"></i>
+            <h4 class="mt-3 mb-3">Neurology</h4>
+          </div>
+          <div class="content"><p class="mb-4">Stroke care, epilepsy management, Parkinson's, and minimally invasive brain &amp; spine surgery.</p></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-crutch text-lg"></i>
+            <h4 class="mt-3 mb-3">Orthopaedics</h4>
+          </div>
+          <div class="content"><p class="mb-4">Joint replacement, sports medicine, spine surgery, and robotic-assisted orthopaedic procedures.</p></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-laboratory text-lg"></i>
+            <h4 class="mt-3 mb-3">NABL Laboratory</h4>
+          </div>
+          <div class="content"><p class="mb-4">1,500+ tests, home sample collection, and results within 4–6 hours. NABL-accredited diagnostic labs.</p></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-dna-alt-1 text-lg"></i>
+            <h4 class="mt-3 mb-3">Gynaecology &amp; IVF</h4>
+          </div>
+          <div class="content"><p class="mb-4">Complete women's health — prenatal care, high-risk pregnancy, and fertility treatment under one roof.</p></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6 col-sm-6">
+        <div class="service-item mb-4">
+          <div class="icon d-flex align-items-center">
+            <i class="icofont-tooth text-lg"></i>
+            <h4 class="mt-3 mb-3">Dental Care</h4>
+          </div>
+          <div class="content"><p class="mb-4">Implants, orthodontics, cosmetic dentistry, oral surgery, and painless root canal treatments.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Home Appointment Form ───────────────────────────────────── -->
+<section class="section appoinment">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="appoinment-content">
+          <img src="{{ url_for('static', filename='images/about/img-3.jpg') }}" alt="Marvel Hospitals" class="img-fluid">
+          <div class="emergency">
+            <h2 class="text-lg"><i class="icofont-phone-circle text-lg"></i>1800-MARVEL-01</h2>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 col-md-10">
+        <div class="appoinment-wrap mt-5 mt-lg-0">
+          <h2 class="mb-2 title-color">Book an Appointment</h2>
+          <p class="mb-4">Fill in your details and our patient coordinator will confirm within 2 hours.</p>
+          <form id="homeApptForm" class="appoinment-form">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <select class="form-control" id="haDept">
+                    <option value="">Choose Department</option>
+                    <option>Cardiology</option><option>Neurology</option>
+                    <option>Orthopaedics</option><option>Gynaecology</option>
+                    <option>General Medicine</option><option>Dental Care</option>
+                    <option>Paediatrics</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <select class="form-control" id="haDoctor">
+                    <option value="">Select Doctor</option>
+                    <option>Dr. Ankit Sharma – Cardiology</option>
+                    <option>Dr. Priya Mehta – Neurology</option>
+                    <option>Dr. Ravi Rao – Orthopaedics</option>
+                    <option>Dr. Sunita Singh – Gynaecology</option>
+                    <option>Dr. Arun Kumar – General Medicine</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <input type="date" class="form-control" id="haDate">
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <input type="time" class="form-control" id="haTime">
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <input type="text" class="form-control" id="haName" placeholder="Full Name">
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <input type="tel" class="form-control" id="haPhone" placeholder="Phone Number">
+                </div>
+              </div>
+            </div>
+            <div class="form-group-2 mb-4">
+              <textarea class="form-control" id="haMsg" rows="4" placeholder="Reason for Visit / Message"></textarea>
+            </div>
+            <a href="{{ url_for('public.appointment') }}" class="btn btn-main btn-round-full">
+              Make Appointment <i class="icofont-simple-right ml-2"></i>
+            </a>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Testimonials ─────────────────────────────────────────────── -->
+<section class="section testimonial-2 gray-bg">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="section-title text-center">
+          <h2>Trusted by 75,000+ Patients</h2>
+          <div class="divider mx-auto my-4"></div>
+          <p>Here is what our patients say about their experience at Marvel Hospitals.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-12 testimonial-wrap-2">
+        <div class="testimonial-block style-2 gray-bg">
+          <i class="icofont-quote-right"></i>
+          <div class="testimonial-thumb">
+            <img src="{{ url_for('static', filename='images/team/test-thumb1.jpg') }}" alt="Patient" class="img-fluid">
+          </div>
+          <div class="client-info">
+            <h4>Exceptional Cardiac Care!</h4><span>Ramesh Babu, Hyderabad</span>
+            <p>My cardiac procedure went smoothly and the recovery support was outstanding. The doctors at Marvel Hospitals are truly world-class. I highly recommend them.</p>
+          </div>
+        </div>
+        <div class="testimonial-block style-2 gray-bg">
+          <div class="testimonial-thumb">
+            <img src="{{ url_for('static', filename='images/team/test-thumb2.jpg') }}" alt="Patient" class="img-fluid">
+          </div>
+          <div class="client-info">
+            <h4>Best Neurology Team!</h4><span>Lakshmi Devi, Secunderabad</span>
+            <p>After my stroke, the neurology team at Marvel Hospitals gave me a second chance at life. The rehabilitation support was phenomenal throughout my recovery.</p>
+          </div>
+          <i class="icofont-quote-right"></i>
+        </div>
+        <div class="testimonial-block style-2 gray-bg">
+          <div class="testimonial-thumb">
+            <img src="{{ url_for('static', filename='images/team/test-thumb3.jpg') }}" alt="Patient" class="img-fluid">
+          </div>
+          <div class="client-info">
+            <h4>Modern Facilities!</h4><span>Suresh Reddy, Warangal</span>
+            <p>The hospital infrastructure is state-of-the-art. From OPD to ICU everything is managed brilliantly. Truly Marvel by name, marvel by nature!</p>
+          </div>
+          <i class="icofont-quote-right"></i>
+        </div>
+        <div class="testimonial-block style-2 gray-bg">
+          <div class="testimonial-thumb">
+            <img src="{{ url_for('static', filename='images/team/test-thumb4.jpg') }}" alt="Patient" class="img-fluid">
+          </div>
+          <div class="client-info">
+            <h4>Compassionate Staff!</h4><span>Priya Sharma, Hyderabad</span>
+            <p>Every nurse, doctor and support staff treated my mother with dignity and kindness. Marvel Hospitals is our family's first choice for healthcare always.</p>
+          </div>
+          <i class="icofont-quote-right"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

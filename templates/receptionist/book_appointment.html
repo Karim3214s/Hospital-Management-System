@@ -1,0 +1,461 @@
+{% extends "common/base.html" %}
+{% block title %}Book Appointment{% endblock %}
+{% block page_heading %}Book Appointment{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Reception</span>
+<a href="/receptionist/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+<a href="/receptionist/register-patient" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Patient</a>
+<a href="/receptionist/book-appointment" class="nav-link active"><i class="bi bi-calendar-plus"></i> Book
+  Appointment</a>
+<a href="/receptionist/check-in" class="nav-link"><i class="bi bi-check2-circle"></i> Check-In</a>
+<a href="/receptionist/generate-bill" class="nav-link"><i class="bi bi-receipt"></i> Generate Bill</a>
+<a href="/receptionist/record-payment" class="nav-link"><i class="bi bi-cash-coin"></i> Record Payment</a>
+<span class="nav-label">Logs</span>
+<a href="/receptionist/audit-logs" class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .wizard-steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+  }
+
+  .wizard-step {
+    flex: 1;
+    text-align: center;
+    padding: .6rem .5rem;
+    background: #f0f4f8;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #aaa;
+    position: relative;
+    border: 2px solid #e3e8f0;
+    transition: all .2s;
+  }
+
+  .wizard-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 10px solid transparent;
+    border-left-color: #e3e8f0;
+    z-index: 2;
+  }
+
+  .wizard-step.active {
+    background: var(--hms-primary);
+    color: #fff;
+    border-color: var(--hms-primary);
+  }
+
+  .wizard-step.done {
+    background: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+  }
+
+  .wizard-step.active::after {
+    border-left-color: var(--hms-primary) !important;
+  }
+
+  .wizard-step.done::after {
+    border-left-color: #c3e6cb !important;
+  }
+
+  .date-strip {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .date-btn {
+    padding: .5rem .9rem;
+    border: 2px solid #e3e8f0;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    text-align: center;
+    min-width: 68px;
+    transition: all .2s;
+    font-weight: 700;
+    font-size: .82rem;
+  }
+
+  .date-btn .day-name {
+    font-size: .65rem;
+    color: #aaa;
+    display: block;
+  }
+
+  .date-btn.selected {
+    border-color: var(--hms-primary);
+    background: var(--hms-primary);
+    color: #fff;
+  }
+
+  .date-btn.selected .day-name {
+    color: rgba(255, 255, 255, .7);
+  }
+
+  .slot-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  .slot-btn {
+    padding: .4rem .85rem;
+    border: 2px solid #e3e8f0;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 700;
+    transition: all .15s;
+  }
+
+  .slot-btn.taken {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #aaa;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+
+  .slot-btn.selected {
+    background: var(--hms-primary);
+    border-color: var(--hms-primary);
+    color: #fff;
+  }
+
+  .slot-btn:not(.taken):hover {
+    border-color: var(--hms-primary);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <a href="/receptionist/dashboard" class="text-decoration-none text-muted mb-3 d-inline-block"
+      style="font-size:.88rem;">
+      <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+    </a>
+
+    <!-- Step indicator -->
+    <div class="wizard-steps mb-4">
+      <div class="wizard-step active" id="step-ind-1">1 &nbsp; Patient &amp; Doctor</div>
+      <div class="wizard-step" id="step-ind-2">2 &nbsp; Pick Date</div>
+      <div class="wizard-step" id="step-ind-3">3 &nbsp; Select Slot</div>
+      <div class="wizard-step" id="step-ind-4">4 &nbsp; Confirm</div>
+    </div>
+
+    <div class="hms-card">
+      <div class="card-body p-4">
+
+        <!-- ── Step 1 ─────────────────────────────────────── -->
+        <div id="step1">
+          <h6 class="fw-bold mb-3">Step 1 — Patient, Department &amp; Doctor</h6>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-bold">Patient <span class="text-danger">*</span></label>
+              <!-- 🔍 Search -->
+              <input type="text" id="patientSearch" class="form-control mb-2"
+                placeholder="Search patient by name or ID...">
+
+              <!-- Dropdown -->
+              <select id="selPatient" class="form-select">
+                <option value="">Select patient…</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Department <span class="text-danger">*</span></label>
+              <select id="selDept" class="form-select">
+                <option value="">Select department…</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Doctor <span class="text-danger">*</span></label>
+              <select id="selDoctor" class="form-select" disabled>
+                <option value="">Select department first…</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">Reason / Chief Complaint</label>
+              <input type="text" id="reason" class="form-control" placeholder="e.g. Chest pain follow-up" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Mode of Appointment</label>
+              <select id="modeAppt" class="form-select">
+                <option>In-Person</option>
+                <option>Teleconsult</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-4">
+            <button class="btn btn-hms-primary px-4" id="nextStep1">Next →</button>
+          </div>
+        </div>
+
+        <!-- ── Step 2 ─────────────────────────────────────── -->
+        <div id="step2" class="d-none">
+          <h6 class="fw-bold mb-3">Step 2 — Pick a Date</h6>
+          <div class="date-strip" id="dateStrip"></div>
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-outline-secondary" id="backStep2">← Back</button>
+            <button class="btn btn-hms-primary px-4" id="nextStep2">Next →</button>
+          </div>
+        </div>
+
+        <!-- ── Step 3 ─────────────────────────────────────── -->
+        <div id="step3" class="d-none">
+          <h6 class="fw-bold mb-1">Step 3 — Available Slots</h6>
+          <p class="text-muted mb-3" id="slotContext" style="font-size:.85rem;"></p>
+          <div class="slot-grid" id="slotGrid">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </div>
+          <p class="text-muted mt-2" style="font-size:.75rem;"><span style="text-decoration:line-through">HH:MM</span> =
+            taken</p>
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-outline-secondary" id="backStep3">← Back</button>
+            <button class="btn btn-hms-primary px-4" id="nextStep3">Next →</button>
+          </div>
+        </div>
+
+        <!-- ── Step 4 ─────────────────────────────────────── -->
+        <div id="step4" class="d-none">
+          <h6 class="fw-bold mb-3">Step 4 — Confirm &amp; Submit</h6>
+          <div class="p-3 bg-light rounded mb-3" id="confirmBox"></div>
+          <div class="alert alert-warning py-2" style="font-size:.82rem;">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Slot is re-validated on submit. If taken, you will be notified to choose another.
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-outline-secondary" id="backStep4">← Back</button>
+            <button class="btn btn-hms-primary px-4" id="confirmBtn">
+              <span id="confirmSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+              Confirm Appointment
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  /* ── State ──────────────────────────────────────────────────────────── */
+  const state = { patient: null, dept: null, doctor: null, date: null, slot: null, reason: '', mode: '' };
+  let currentStep = 1;
+
+  /* ── Step helpers ───────────────────────────────────────────────────── */
+  function goStep(n) {
+    [1, 2, 3, 4].forEach(i => {
+      document.getElementById(`step${i}`).classList.toggle('d-none', i !== n);
+      const ind = document.getElementById(`step-ind-${i}`);
+      ind.classList.toggle('active', i === n);
+      ind.classList.toggle('done', i < n);
+    });
+    currentStep = n;
+  }
+
+  /* ── Load patients (FIXED) ─────────────────────────────────────────── */
+  let allPatients = []; // store full list
+
+  async function loadPatients() {
+    try {
+      const data = await apiRequest('/receptionist/api/receptionist/patients-list');
+
+      if (!Array.isArray(data)) return;
+
+      allPatients = data;
+      renderPatients(data);
+
+    } catch (err) {
+      console.error("Error loading patients:", err);
+    }
+  }
+
+  function renderPatients(list) {
+    const select = document.getElementById('selPatient');
+
+    select.innerHTML =
+      '<option value="">Select patient…</option>' +
+      list.map(p => `
+      <option value="${p.patient_Id}">
+        ${p.name || 'Unknown'} (PT-${String(p.patient_Id).padStart(4, '0')})
+      </option>
+    `).join('');
+  }
+
+  /* ── Load departments and doctors, handle steps, slots, and booking... (see full code in extra_js) ───────────────────────────────────────────────────── */
+  document.getElementById('patientSearch').addEventListener('input', function () {
+    const query = this.value.toLowerCase().trim();
+
+    const filtered = allPatients.filter(p => {
+      const name = (p.name || '').toLowerCase();
+      const id = String(p.patient_Id);
+
+      return name.includes(query) || id.includes(query);
+    });
+
+    renderPatients(filtered);
+  });
+
+  /* ── Load departments ───────────────────────────────────────────────── */
+  async function loadDepts() {
+    try {
+      const data = await apiRequest('/admin/api/admin/departments');
+      document.getElementById('selDept').innerHTML =
+        '<option value="">Select department…</option>' +
+        data.map(d => `<option value="${d.dept_Id}">${d.dept_Name}</option>`).join('');
+    } catch (_) { }
+  }
+
+  /* ── Load doctors by dept ───────────────────────────────────────────── */
+  document.getElementById('selDept').addEventListener('change', async function () {
+    const deptId = this.value;
+    const selDoc = document.getElementById('selDoctor');
+    selDoc.innerHTML = '<option>Loading…</option>';
+    selDoc.disabled = true;
+    if (!deptId) return;
+    try {
+      const data = await apiRequest(`/admin/api/admin/doctors-by-dept/${deptId}`);
+      selDoc.innerHTML = '<option value="">Select doctor…</option>' +
+        data.map(d => `<option value="${d.doct_Id}">Dr. ${d.FName} ${d.LName}</option>`).join('');
+      selDoc.disabled = false;
+    } catch (_) { }
+  });
+
+  /* ── Step 1 → 2 ────────────────────────────────────────────────────── */
+  document.getElementById('nextStep1').addEventListener('click', () => {
+    state.patient = document.getElementById('selPatient').value;
+    state.dept = document.getElementById('selDept').value;
+    state.doctor = document.getElementById('selDoctor').value;
+    state.reason = document.getElementById('reason').value;
+    state.mode = document.getElementById('modeAppt').value;
+
+    if (!state.patient || !state.dept || !state.doctor) {
+      showToast('Please select patient, department and doctor', 'danger'); return;
+    }
+    buildDateStrip();
+    goStep(2);
+  });
+
+  /* ── Date strip ─────────────────────────────────────────────────────── */
+  function buildDateStrip() {
+    const strip = document.getElementById('dateStrip');
+    const today = new Date();
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    strip.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const btn = document.createElement('div');
+      btn.className = 'date-btn';
+      btn.dataset.date = iso;
+      btn.innerHTML = `<span class="day-name">${days[d.getDay()]}</span>${d.getDate()}`;
+      btn.addEventListener('click', function () {
+        strip.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        state.date = this.dataset.date;
+      });
+      strip.appendChild(btn);
+    }
+  }
+
+  /* ── Step 2 → 3 ────────────────────────────────────────────────────── */
+  document.getElementById('nextStep2').addEventListener('click', async () => {
+    if (!state.date) { showToast('Please pick a date', 'danger'); return; }
+    goStep(3);
+    document.getElementById('slotContext').textContent =
+      `Showing slots for Doctor ID ${state.doctor} on ${state.date}`;
+    await loadSlots();
+  });
+  document.getElementById('backStep2').addEventListener('click', () => goStep(1));
+
+  /* ── Slots ──────────────────────────────────────────────────────────── */
+  async function loadSlots() {
+    const grid = document.getElementById('slotGrid');
+    grid.innerHTML = '<div class="spinner-border spinner-border-sm text-primary"></div>';
+    try {
+      const data = await apiRequest(`/receptionist/api/receptionist/slots?doctor_id=${state.doctor}&date=${state.date}`);
+      if (!data.slots?.length) {
+        grid.innerHTML = '<p class="text-muted">No slots available for this date.</p>';
+        return;
+      }
+      grid.innerHTML = data.slots.map(s => `
+      <button class="slot-btn ${s.taken ? 'taken' : ''}" data-time="${s.time}" ${s.taken ? 'disabled' : ''}>
+        ${s.time}
+      </button>`).join('');
+      grid.querySelectorAll('.slot-btn:not(.taken)').forEach(btn => {
+        btn.addEventListener('click', function () {
+          grid.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+          this.classList.add('selected');
+          state.slot = this.dataset.time;
+        });
+      });
+    } catch (_) { }
+  }
+
+  /* ── Step 3 → 4 ────────────────────────────────────────────────────── */
+  document.getElementById('nextStep3').addEventListener('click', () => {
+    if (!state.slot) { showToast('Please select a time slot', 'danger'); return; }
+    const ptText = document.getElementById('selPatient').selectedOptions[0]?.text;
+    const docText = document.getElementById('selDoctor').selectedOptions[0]?.text;
+    document.getElementById('confirmBox').innerHTML = `
+    <div class="row g-2">
+      <div class="col-md-6"><span class="text-muted">Patient:</span> <strong>${ptText}</strong></div>
+      <div class="col-md-6"><span class="text-muted">Doctor:</span> <strong>${docText}</strong></div>
+      <div class="col-md-6"><span class="text-muted">Date:</span> <strong>${state.date}</strong></div>
+      <div class="col-md-6"><span class="text-muted">Time:</span> <strong>${state.slot}</strong></div>
+      <div class="col-md-6"><span class="text-muted">Reason:</span> <strong>${state.reason || '—'}</strong></div>
+      <div class="col-md-6"><span class="text-muted">Mode:</span> <strong>${state.mode}</strong></div>
+    </div>`;
+    goStep(4);
+  });
+  document.getElementById('backStep3').addEventListener('click', () => goStep(2));
+  document.getElementById('backStep4').addEventListener('click', () => goStep(3));
+
+  /* ── Confirm ────────────────────────────────────────────────────────── */
+  document.getElementById('confirmBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('confirmBtn');
+    const spinner = document.getElementById('confirmSpinner');
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    const [h, m] = state.slot.split(':');
+    const apptDate = new Date(`${state.date}T${state.slot}:00`);
+
+    try {
+      await apiRequest('/receptionist/api/receptionist/book-appointment', {
+        method: 'POST',
+        body: JSON.stringify({
+          patient_id: parseInt(state.patient),
+          doct_id: parseInt(state.doctor),
+          reason: state.reason,
+          appointment_date: state.date,
+          appointment_time: state.slot,
+          mode_of_appointment: state.mode,
+        }),
+      });
+      showToast('Appointment booked successfully!');
+      setTimeout(() => { window.location.href = '/receptionist/dashboard'; }, 1500);
+    } catch (_) {
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+    }
+  });
+
+  loadPatients();
+  loadDepts();
+</script>
+{% endblock %}

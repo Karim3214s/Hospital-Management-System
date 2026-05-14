@@ -1,0 +1,215 @@
+{% extends "common/base.html" %}
+{% block title %}Appointments — Auditor View{% endblock %}
+{% block page_heading %}Appointments{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Auditor</span>
+<a href="/auditor/dashboard"    class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+<a href="/auditor/appointments" class="nav-link active"><i class="bi bi-calendar2-check"></i> Appointments</a>
+<a href="/auditor/patients"     class="nav-link"><i class="bi bi-person-lines-fill"></i> Patients</a>
+<a href="/auditor/doctors"      class="nav-link"><i class="bi bi-person-badge-fill"></i> Doctors</a>
+<a href="/auditor/departments"  class="nav-link"><i class="bi bi-building"></i> Departments</a>
+<span class="nav-label">Reports</span>
+<a href="/auditor/billing"      class="nav-link"><i class="bi bi-credit-card-2-front"></i> Billing</a>
+<a href="/auditor/users"        class="nav-link"><i class="bi bi-people-fill"></i> Users</a>
+<a href="/auditor/export"        class="nav-link"><i class="bi bi-cloud-download"></i> Export</a>
+<a href="/auditor/audit-logs"   class="nav-link"><i class="bi bi-journal-text"></i> Audit Logs</a>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .view-only-badge {
+    background: #fef3c7; color: #92400e; font-size: .73rem; font-weight: 700;
+    padding: .25rem .7rem; border-radius: 20px; border: 1px solid #fbbf24;
+  }
+  .stats-strip {
+    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.4rem;
+  }
+  .mini-stat {
+    background: #fff; border-radius: 10px; padding: .7rem 1.1rem;
+    box-shadow: 0 1px 8px rgba(28,43,74,.08); display: flex; align-items: center; gap: .6rem;
+    border-left: 3px solid var(--accent, #1a73e8);
+  }
+  .mini-stat .ms-label { font-size: .73rem; font-weight: 700; color: #6b7280; text-transform: uppercase; }
+  .mini-stat .ms-val   { font-size: 1.2rem; font-weight: 800; color: #111827; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header Banner -->
+<div class="d-flex align-items-center gap-3 mb-3">
+  <span class="view-only-badge"><i class="bi bi-eye me-1"></i>View & Filter Only — No Edits Permitted</span>
+  <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="exportCSV()">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </button>
+</div>
+
+<!-- Mini Stats -->
+<div class="stats-strip" id="miniStats">
+  <div class="mini-stat" style="--accent:#1a73e8">
+    <i class="bi bi-calendar2-check fs-4 text-primary"></i>
+    <div><div class="ms-label">Total</div><div class="ms-val" id="statTotal">—</div></div>
+  </div>
+  <div class="mini-stat" style="--accent:#22c55e">
+    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+    <div><div class="ms-label">Completed</div><div class="ms-val" id="statCompleted">—</div></div>
+  </div>
+  <div class="mini-stat" style="--accent:#f59e0b">
+    <i class="bi bi-hourglass-split fs-4 text-warning"></i>
+    <div><div class="ms-label">Scheduled</div><div class="ms-val" id="statScheduled">—</div></div>
+  </div>
+  <div class="mini-stat" style="--accent:#ef4444">
+    <i class="bi bi-x-circle-fill fs-4 text-danger"></i>
+    <div><div class="ms-label">Cancelled</div><div class="ms-val" id="statCancelled">—</div></div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar d-flex gap-2 align-items-end flex-wrap mb-3">
+  <div>
+    <label class="form-label small mb-1">From</label>
+    <input type="date" id="dateFrom" class="form-control form-control-sm">
+  </div>
+  <div>
+    <label class="form-label small mb-1">To</label>
+    <input type="date" id="dateTo" class="form-control form-control-sm">
+  </div>
+  <div>
+    <label class="form-label small mb-1">Status</label>
+    <select id="statusFilter" class="form-select form-select-sm" style="min-width:140px">
+      <option value="">All</option>
+      <option>Scheduled</option><option>Completed</option><option>Cancelled</option>
+    </select>
+  </div>
+  <div>
+    <label class="form-label small mb-1">Department</label>
+    <select id="deptFilter" class="form-select form-select-sm" style="min-width:160px">
+      <option value="">All Departments</option>
+    </select>
+  </div>
+  <button class="btn btn-sm btn-hms-primary align-self-end" onclick="loadAppts(1)">
+    <i class="bi bi-search me-1"></i>Filter
+  </button>
+  <button class="btn btn-sm btn-outline-secondary align-self-end" onclick="clearFilters()">Reset</button>
+</div>
+
+<div class="hms-card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table hms-table mb-0">
+        <thead><tr>
+          <th>#</th><th>Patient</th><th>Doctor</th><th>Department</th>
+          <th>Date</th><th>Slot</th><th>Status</th><th>Mode</th><th>Fee</th>
+        </tr></thead>
+        <tbody id="apptBody">
+          <tr><td colspan="9" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary"></div> Loading…
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center p-3">
+      <span class="text-muted small" id="apptCount"></span>
+      <div id="apptPagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+
+async function loadDepts() {
+  try {
+    const depts = await apiRequest('/auditor/api/departments');
+    const sel = document.getElementById('deptFilter');
+    depts.forEach(d => {
+      const o = document.createElement('option');
+      o.value = d.dept_Id; o.textContent = d.dept_Name;
+      sel.appendChild(o);
+    });
+  } catch(e) {}
+}
+
+function clearFilters() {
+  ['dateFrom','dateTo','statusFilter','deptFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  loadAppts(1);
+}
+
+function exportCSV() {
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const status = document.getElementById('statusFilter').value;
+  const dept   = document.getElementById('deptFilter').value;
+  const qs = new URLSearchParams({type:'appointments'});
+  if (from)   qs.append('date_from', from);
+  if (to)     qs.append('date_to', to);
+  if (status) qs.append('status', status);
+  if (dept)   qs.append('dept', dept);
+  window.location.href = '/auditor/api/export?' + qs;
+}
+
+function statusBadge(s) {
+  const m = { Completed:'success', Scheduled:'warning', Cancelled:'danger' };
+  return `<span class="badge bg-${m[s]||'secondary'}-subtle text-${m[s]||'secondary'} fw-bold">${s||'—'}</span>`;
+}
+
+async function loadAppts(page=1) {
+  currentPage = page;
+  document.getElementById('apptBody').innerHTML =
+    `<tr><td colspan="9" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>`;
+
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+  const status = document.getElementById('statusFilter').value;
+  const dept   = document.getElementById('deptFilter').value;
+  const qs = new URLSearchParams({page});
+  if (from)   qs.append('date_from', from);
+  if (to)     qs.append('date_to', to);
+  if (status) qs.append('status', status);
+  if (dept)   qs.append('dept', dept);
+
+  try {
+    const d = await apiRequest('/auditor/api/appointments?' + qs);
+
+    if (d.stats) {
+      document.getElementById('statTotal').textContent     = d.stats.total ?? '—';
+      document.getElementById('statCompleted').textContent = d.stats.completed ?? '—';
+      document.getElementById('statScheduled').textContent = d.stats.scheduled ?? '—';
+      document.getElementById('statCancelled').textContent = d.stats.cancelled ?? '—';
+    }
+
+    if (!d.items?.length) {
+      document.getElementById('apptBody').innerHTML =
+        `<tr><td colspan="9" class="text-center py-4 text-muted">No appointments found.</td></tr>`;
+      return;
+    }
+
+    document.getElementById('apptBody').innerHTML = d.items.map(a => `
+      <tr>
+        <td><span class="text-muted small">APT-${String(a.id).padStart(4,'0')}</span></td>
+        <td><strong>${a.patient_name}</strong></td>
+        <td>${a.doctor_name}</td>
+        <td><span class="badge bg-light text-dark border">${a.dept_name||'—'}</span></td>
+        <td>${a.date}</td>
+        <td>${a.slot||'—'}</td>
+        <td>${statusBadge(a.status)}</td>
+        <td><span class="badge bg-info-subtle text-info">${a.mode||'—'}</span></td>
+        <td>₹${a.fee||0}</td>
+      </tr>`).join('');
+
+    document.getElementById('apptCount').textContent = `Showing ${d.items.length} of ${d.total} records`;
+    renderPagination('apptPagination', page, d.total_pages, loadAppts);
+  } catch(e) { console.error(e); }
+}
+
+loadDepts();
+loadAppts(1);
+</script>
+{% endblock %}

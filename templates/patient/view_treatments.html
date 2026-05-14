@@ -1,0 +1,98 @@
+{% extends "common/base.html" %}
+{% block title %}View Treatments{% endblock %}
+{% block page_heading %}View Treatments{% endblock %}
+
+{% block sidebar_nav %}
+<span class="nav-label">Patient</span>
+<a href="/patient/profile" class="nav-link"><i class="bi bi-person-circle"></i> My Profile</a>
+<a href="/patient/appointments" class="nav-link"><i class="bi bi-calendar2-check"></i> My Appointments</a>
+<a href="/patient/bills" class="nav-link"><i class="bi bi-receipt"></i> My Bills</a>
+<a href="/patient/treatments" class="nav-link active"><i class="bi bi-clipboard2-pulse"></i> View Treatments</a>
+<span class="nav-label">Account</span>
+<a href="/logout" class="nav-link text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+{% endblock %}
+
+{% block content %}
+<!-- Patient summary pill -->
+<div class="hms-card mb-4 p-3">
+  <div class="d-flex align-items-center gap-3">
+    <div style="width:48px;height:48px;border-radius:50%;background:var(--hms-accent);color:#fff;
+         display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;" id="ptInitials">—</div>
+    <div>
+      <div class="fw-bold" id="ptName">—</div>
+      <div class="text-muted" style="font-size:.82rem;" id="ptMeta">—</div>
+    </div>
+    <span class="ms-auto badge-status status-active">Active</span>
+  </div>
+</div>
+
+<!-- Treatment history -->
+<div class="hms-card">
+  <div class="card-header">
+    <i class="bi bi-clipboard2-pulse text-primary"></i>
+    <h6>Treatment History — Read-only</h6>
+    <span class="ms-auto text-muted small" id="totalCount">—</span>
+  </div>
+  <div class="card-body p-0" id="treatmentBody">
+    <div class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary"></div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end p-3" id="treatmentPagination"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tPage = 1;
+
+async function loadPatientInfo() {
+  try {
+    const p = await apiRequest('/api/patient/profile');
+    const initials = `${p.FName?.[0]||''}${p.LName?.[0]||''}`.toUpperCase();
+    document.getElementById('ptInitials').textContent = initials;
+    document.getElementById('ptName').textContent     = `${p.FName} ${p.LName}`;
+    document.getElementById('ptMeta').textContent =
+      `DOB: ${p.Date_Of_Birth || '—'} · ${p.Gender || '—'} · Ph: ${p.contact_No || '—'}`;
+  } catch (_) {}
+}
+
+async function loadTreatments(page = 1) {
+  tPage = page;
+  const body = document.getElementById('treatmentBody');
+  body.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+  try {
+    const data = await apiRequest(`/api/patient/treatments?page=${page}`);
+    document.getElementById('totalCount').textContent = `${data.total ?? 0} records`;
+    if (!data.items?.length) {
+      body.innerHTML = `<div class="text-center py-5 text-muted">
+        <i class="bi bi-clipboard2" style="font-size:2.5rem;opacity:.3;"></i>
+        <p class="mt-2">No treatment records found.</p></div>`;
+      return;
+    }
+    body.innerHTML = data.items.map(r => `
+      <div class="border-bottom p-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <span class="fw-bold">${r.visit_Date}</span>
+            <span class="text-muted ms-2" style="font-size:.82rem;">
+              Dr. ${r.doctor_name || '—'}${r.dept_name ? ' · ' + r.dept_name : ''}
+            </span>
+          </div>
+          <span class="badge-status status-completed">Completed</span>
+        </div>
+        <div class="mb-1">
+          <span class="text-muted" style="font-size:.8rem;">Diagnosis:</span>
+          <strong style="font-size:.88rem;"> ${r.diagnosis || '—'}</strong>
+        </div>
+        ${r.treatment ? `<div class="text-muted" style="font-size:.85rem;">
+          <i class="bi bi-capsule me-1"></i>Rx: ${r.treatment}</div>` : ''}
+      </div>`).join('');
+    renderPagination('treatmentPagination', page, data.total_pages, loadTreatments);
+  } catch (_) {}
+}
+
+loadPatientInfo();
+loadTreatments(1);
+</script>
+{% endblock %}

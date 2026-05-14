@@ -1,0 +1,388 @@
+{% extends "common/base.html" %}
+{% block title %}Apply Leave{% endblock %}
+{% block page_heading %}Leave Management{% endblock %}
+
+{% block sidebar_nav %}
+<a href="/doctor/appointments" class="nav-link">
+  <i class="bi bi-calendar2-check"></i> My Appointments
+</a>
+<a href="/doctor/calendar" class="nav-link">
+  <i class="bi bi-calendar3"></i> My Calendar
+</a>
+<a href="/doctor/apply_leave" class="nav-link active">
+  <i class="bi bi-calendar-x"></i> Apply Leave
+</a>
+<a href="/doctor/patient-history" class="nav-link">
+  <i class="bi bi-clock-history"></i> Patient History
+</a>
+<a href="/doctor/dashboard" class="nav-link">
+  <i class="bi bi-bar-chart-line-fill"></i> Dashboard
+</a>
+<a href="/doctor/profile" class="nav-link">
+  <i class="bi bi-person-circle"></i> My Profile
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Doctor Leave Page ── */
+  .dl-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .dl-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Apply Form Card ── */
+  .dl-form-card {
+    background: #fff;
+    border-radius: 18px;
+    border: 1.5px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(28,43,74,.08);
+  }
+  .dl-form-header {
+    background: linear-gradient(135deg, var(--hms-primary) 0%, #6366f1 100%);
+    padding: 1.5rem 1.5rem 1.2rem;
+    color: #fff;
+  }
+  .dl-form-header h5 {
+    font-weight: 800; font-size: 1.1rem; margin: 0 0 .25rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .dl-form-header p { font-size: .82rem; opacity: .85; margin: 0; }
+
+  .dl-form-body { padding: 1.5rem; }
+
+  .dl-field { margin-bottom: 1.1rem; }
+  .dl-field label {
+    display: block; font-size: .8rem; font-weight: 700;
+    color: #374151; margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .5px;
+  }
+  .dl-field input[type="date"],
+  .dl-field textarea {
+    width: 100%;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: .6rem .9rem;
+    font-size: .88rem;
+    font-family: inherit;
+    outline: none;
+    transition: border .18s, box-shadow .18s;
+    background: #f9fafb;
+    color: #111827;
+  }
+  .dl-field input[type="date"]:focus,
+  .dl-field textarea:focus {
+    border-color: var(--hms-primary);
+    box-shadow: 0 0 0 3px rgba(26,115,232,.12);
+    background: #fff;
+  }
+  .dl-field textarea { resize: vertical; min-height: 100px; }
+
+  /* Date range preview */
+  .dl-range-preview {
+    display: none;
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 8px;
+    padding: .5rem .85rem;
+    font-size: .8rem;
+    color: #1d4ed8;
+    font-weight: 600;
+    margin-top: .4rem;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dl-range-preview.visible { display: flex; }
+
+  .dl-submit-btn {
+    width: 100%;
+    padding: .7rem;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--hms-primary), #6366f1);
+    color: #fff;
+    font-weight: 700;
+    font-size: .92rem;
+    cursor: pointer;
+    transition: opacity .18s, transform .18s;
+    display: flex; align-items: center; justify-content: center; gap: .4rem;
+    margin-top: .5rem;
+  }
+  .dl-submit-btn:hover { opacity: .9; transform: translateY(-1px); }
+
+  /* ── History Panel ── */
+  .dl-history-card {
+    background: #fff;
+    border-radius: 18px;
+    border: 1.5px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(28,43,74,.08);
+  }
+  .dl-history-header {
+    padding: 1.1rem 1.3rem;
+    border-bottom: 1.5px solid #f3f4f6;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; flex-wrap: wrap;
+  }
+  .dl-history-header h5 {
+    font-weight: 800; color: #111827; font-size: 1rem; margin: 0;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .dl-hist-stats { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .dl-hist-chip {
+    padding: .25rem .7rem; border-radius: 999px;
+    font-size: .74rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: .3rem;
+  }
+  .chip-p { background:#fef3c7; color:#92400e; }
+  .chip-a { background:#d1fae5; color:#065f46; }
+  .chip-r { background:#fee2e2; color:#991b1b; }
+
+  /* History items */
+  .dl-hist-list { padding: .75rem; display: flex; flex-direction: column; gap: .6rem; }
+
+  .dl-hist-item {
+    border-radius: 12px; border: 1.5px solid #e5e7eb;
+    padding: .85rem 1rem;
+    display: flex; align-items: flex-start; gap: .85rem;
+    transition: box-shadow .18s;
+  }
+  .dl-hist-item:hover { box-shadow: 0 2px 10px rgba(26,115,232,.08); }
+  .dl-hist-item.pending  { border-left: 4px solid #f59e0b; }
+  .dl-hist-item.approved { border-left: 4px solid #10b981; }
+  .dl-hist-item.rejected { border-left: 4px solid #ef4444; }
+
+  .dl-hist-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .icon-pending  { background: #fef3c7; color: #d97706; }
+  .icon-approved { background: #d1fae5; color: #059669; }
+  .icon-rejected { background: #fee2e2; color: #dc2626; }
+
+  .dl-hist-body { flex: 1; min-width: 0; }
+  .dl-hist-dates {
+    font-weight: 700; color: #111827; font-size: .88rem; margin-bottom: .15rem;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .dl-hist-dur { font-size: .74rem; color: #6b7280; background: #f3f4f6; padding: .1rem .45rem; border-radius: 999px; }
+  .dl-hist-reason { font-size: .8rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+
+  .dl-hist-badge {
+    font-size: .72rem; font-weight: 700; padding: .18rem .6rem; border-radius: 999px;
+    flex-shrink: 0; margin-left: auto; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: .25rem;
+  }
+  .b-pending  { background:#fef3c7; color:#92400e; }
+  .b-approved { background:#d1fae5; color:#065f46; }
+  .b-rejected { background:#fee2e2; color:#991b1b; }
+
+  /* Cancel button for pending */
+  .dl-hist-cancel {
+    display: inline-flex; align-items: center; gap: .25rem;
+    font-size: .74rem; font-weight: 600; padding: .22rem .65rem;
+    border-radius: 6px; background: #fff1f2; color: #be123c;
+    border: 1.5px solid #fecdd3; cursor: pointer; text-decoration: none;
+    transition: all .17s; margin-left: auto; flex-shrink: 0;
+  }
+  .dl-hist-cancel:hover { background: #be123c; color: #fff; }
+
+  /* Empty history */
+  .dl-hist-empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; }
+  .dl-hist-empty i { font-size: 2rem; display: block; margin-bottom: .5rem; }
+
+  /* Tips card */
+  .dl-tips {
+    background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+    border: 1.5px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-top: 1rem;
+    font-size: .8rem;
+    color: #374151;
+  }
+  .dl-tips strong { display: block; margin-bottom: .4rem; color: #1d4ed8; font-size: .82rem; }
+  .dl-tips ul { margin: 0; padding-left: 1.2rem; }
+  .dl-tips li { margin-bottom: .2rem; }
+</style>
+
+<!-- Flash messages -->
+{% with fmsgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, fm in fmsgs %}
+    <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' }} alert-dismissible fade show">
+      {{ fm }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+<div class="dl-layout">
+
+  <!-- ── Left: Apply Form ── -->
+  <div>
+    <div class="dl-form-card">
+      <div class="dl-form-header">
+        <h5><i class="bi bi-calendar-plus-fill"></i> Apply for Leave</h5>
+        <p>Submit a leave request for admin approval. You'll be notified once reviewed.</p>
+      </div>
+      <div class="dl-form-body">
+        <form method="POST" id="leaveForm">
+
+          <div class="dl-field">
+            <label><i class="bi bi-calendar-event"></i> From Date</label>
+            <input type="date" name="leave_from" id="leaveFrom"
+                   min="{{ now.strftime('%Y-%m-%d') if now else '' }}" required>
+          </div>
+
+          <div class="dl-field">
+            <label><i class="bi bi-calendar-check"></i> To Date</label>
+            <input type="date" name="leave_to" id="leaveTo"
+                   min="{{ now.strftime('%Y-%m-%d') if now else '' }}" required>
+          </div>
+
+          <!-- Duration preview -->
+          <div class="dl-range-preview" id="rangePreview">
+            <i class="bi bi-clock"></i>
+            <span id="rangeText"></span>
+          </div>
+
+          <div class="dl-field" style="margin-top:.9rem">
+            <label><i class="bi bi-chat-left-text"></i> Reason for Leave</label>
+            <textarea name="reason" placeholder="Briefly describe the reason for your leave request…" required></textarea>
+          </div>
+
+          <button type="submit" class="dl-submit-btn">
+            <i class="bi bi-send-fill"></i> Submit Leave Request
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="dl-tips">
+      <strong><i class="bi bi-info-circle-fill"></i> Important Notes</strong>
+      <ul>
+        <li>Requests are reviewed by the admin within 1–2 working days.</li>
+        <li>Pending requests can be cancelled from your history.</li>
+        <li>Approved leaves will be reflected in your calendar automatically.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── Right: History ── -->
+  <div class="dl-history-card">
+    <div class="dl-history-header">
+      <h5><i class="bi bi-clock-history" style="color:var(--hms-primary)"></i> My Leave History</h5>
+      <div class="dl-hist-stats">
+        <span class="dl-hist-chip chip-p">
+          <i class="bi bi-hourglass-split"></i>
+          {{ leaves | selectattr('status','equalto','Pending') | list | length }} Pending
+        </span>
+        <span class="dl-hist-chip chip-a">
+          <i class="bi bi-check-circle-fill"></i>
+          {{ leaves | selectattr('status','equalto','Approved') | list | length }} Approved
+        </span>
+        <span class="dl-hist-chip chip-r">
+          <i class="bi bi-x-circle-fill"></i>
+          {{ leaves | selectattr('status','equalto','Rejected') | list | length }} Rejected
+        </span>
+      </div>
+    </div>
+
+    <div class="dl-hist-list">
+      {% if leaves %}
+        {% for leave in leaves %}
+        {% set sl = leave.status | lower %}
+        <div class="dl-hist-item {{ sl }}">
+
+          <div class="dl-hist-icon icon-{{ sl }}">
+            {% if sl == 'pending' %}<i class="bi bi-hourglass-split"></i>
+            {% elif sl == 'approved' %}<i class="bi bi-check-lg"></i>
+            {% else %}<i class="bi bi-x-lg"></i>{% endif %}
+          </div>
+
+          <div class="dl-hist-body">
+            <div class="dl-hist-dates">
+              {{ leave.leave_from }} &rarr; {{ leave.leave_to }}
+              {% if leave.leave_from and leave.leave_to %}
+                {% set days = (leave.leave_to - leave.leave_from).days + 1 %}
+                <span class="dl-hist-dur">{{ days }} day{{ 's' if days != 1 }}</span>
+              {% endif %}
+            </div>
+            {% if leave.reason %}
+              <div class="dl-hist-reason" title="{{ leave.reason }}">{{ leave.reason }}</div>
+            {% endif %}
+            {% if leave.applied_at %}
+              <div style="font-size:.74rem;color:#9ca3af;margin-top:.2rem">
+                Applied: {{ leave.applied_at.strftime('%d %b %Y') }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-shrink:0;">
+            <span class="dl-hist-badge b-{{ sl }}">
+              {% if sl == 'pending' %}<i class="bi bi-hourglass-split" style="font-size:.65rem"></i> Pending
+              {% elif sl == 'approved' %}<i class="bi bi-check-circle-fill" style="font-size:.65rem"></i> Approved
+              {% else %}<i class="bi bi-x-circle-fill" style="font-size:.65rem"></i> Rejected{% endif %}
+            </span>
+
+            {% if leave.status == 'Pending' %}
+            <a href="/doctor/cancel_leave/{{ leave.leave_id }}"
+               class="dl-hist-cancel"
+               onclick="return confirm('Cancel this leave request?')">
+              <i class="bi bi-x-circle"></i> Cancel
+            </a>
+            {% endif %}
+          </div>
+
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="dl-hist-empty">
+          <i class="bi bi-calendar-check"></i>
+          <p class="fw-bold mb-1">No leave requests yet</p>
+          <p style="font-size:.8rem">Your submitted leave requests will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Date range duration preview
+  const fromInput = document.getElementById('leaveFrom');
+  const toInput   = document.getElementById('leaveTo');
+  const preview   = document.getElementById('rangePreview');
+  const rangeText = document.getElementById('rangeText');
+
+  function updateRange() {
+    const f = fromInput.value, t = toInput.value;
+    if (!f || !t) { preview.classList.remove('visible'); return; }
+    const from = new Date(f), to = new Date(t);
+    if (to < from) {
+      toInput.setCustomValidity('End date must be after start date');
+      preview.classList.remove('visible');
+      return;
+    }
+    toInput.setCustomValidity('');
+    const days = Math.round((to - from) / 86400000) + 1;
+    rangeText.textContent = `${days} day${days !== 1 ? 's' : ''} leave requested`;
+    preview.classList.add('visible');
+  }
+
+  fromInput.addEventListener('change', function() {
+    if (toInput.value && toInput.value < this.value) {
+      toInput.value = this.value;
+    }
+    toInput.min = this.value;
+    updateRange();
+  });
+  toInput.addEventListener('change', updateRange);
+</script>
+{% endblock %}
