@@ -43,7 +43,7 @@ def create_app():
     app.config.from_object(config)
 
     # 🔹 DATABASE CONFIG
-    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URL
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # 🔹 INIT EXTENSIONS
