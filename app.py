@@ -72,7 +72,12 @@ def create_app():
             body=body
         )
 
-        mail.send(msg)
+        try:
+            mail.send(msg)
+            print("Email sent successfully")
+
+        except Exception as e:
+            print("Email Error:", e)
 
     app.send_email = send_email
 
