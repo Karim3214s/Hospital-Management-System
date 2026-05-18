@@ -53,6 +53,10 @@ def create_app():
     Migrate(app, db)
     mail.init_app(app)
 
+    print("MAIL SERVER:", app.config.get("MAIL_SERVER"))
+    print("MAIL USER:", app.config.get("MAIL_USERNAME"))
+    print("SENDGRID KEY EXISTS:", bool(app.config.get("MAIL_PASSWORD")))
+
     # ─────────────────────────────────────────────────────
     # GLOBAL EMAIL FUNCTION
     # ─────────────────────────────────────────────────────
