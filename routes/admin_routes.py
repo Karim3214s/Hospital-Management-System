@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, render_template, request, session, redirect, jsonify, url_for
 from flask_mail import Message
+from sendgrid.helpers import mail
 from sqlalchemy import func
 import datetime, math, hashlib
 from flask import current_app
@@ -7,7 +8,9 @@ from dateutil.relativedelta import relativedelta
 from flask import request, redirect, flash
 from models import ContactMessage
 from database import get_db, get_db_ctx, db
-from config import mail
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import os
 
 # Local imports
 from database import get_db, get_db_ctx,db
