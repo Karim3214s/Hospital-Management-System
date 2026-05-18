@@ -1,6 +1,4 @@
 from flask import Blueprint, flash, render_template, request, session, redirect, jsonify, url_for
-from flask_mail import Message
-from sendgrid.helpers import mail
 from sqlalchemy import func
 import datetime, math, hashlib
 from flask import current_app
@@ -8,9 +6,7 @@ from dateutil.relativedelta import relativedelta
 from flask import request, redirect, flash
 from models import ContactMessage
 from database import get_db, get_db_ctx, db
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-import os
+import secrets
 
 # Local imports
 from database import get_db, get_db_ctx,db
@@ -386,12 +382,20 @@ def api_doctor_create():
 
     with get_db_ctx() as db:
 
+        # 🔥 Generate random password
+        raw_password = secrets.token_urlsafe(8)
+
         user = User(
-            Name = f"{body.get('fname')} {body.get('lname')}",
-            Email = body.get("email"),
-            Password = hashlib.sha256("doctor123".encode()).hexdigest(),
-            Role_ID = 2,
-            is_active = True
+            Name=f"{body.get('fname')} {body.get('lname')}",
+            Email=body.get("email"),
+
+            Password=hashlib.sha256(
+                raw_password.encode()
+            ).hexdigest(),
+
+            Role_ID=2,
+            is_active=True,
+            force_password_change=True
         )
 
         db.add(user)
@@ -399,48 +403,59 @@ def api_doctor_create():
         db.refresh(user)
 
         doc = Doctor(
-            User_ID = user.User_ID,
+            User_ID=user.User_ID,
 
-            FName = body.get("fname"),
-            LName = body.get("lname"),
-            Gender = body.get("gender"),
+            FName=body.get("fname"),
+            LName=body.get("lname"),
+            Gender=body.get("gender"),
 
-            dept_Id = body.get("dept_id"),
+            dept_Id=body.get("dept_id"),
 
-            contact_No = body.get("contact_no"),
-            surgeon_Type = body.get("surgeon_type"),
-            office_No = body.get("office_no"),
+            contact_No=body.get("contact_no"),
+            surgeon_Type=body.get("surgeon_type"),
+            office_No=body.get("office_no"),
 
-            experience_years = body.get("experience_years"),
-            is_dept_head = body.get("is_dept_head"),
-            notes = body.get("notes")
+            experience_years=body.get("experience_years"),
+            is_dept_head=body.get("is_dept_head"),
+            notes=body.get("notes")
         )
 
         db.add(doc)
         db.commit()
 
+        # 🔥 SEND EMAIL
         if user.Email:
+
             current_app.send_email(
-                "Doctor Account Created",
-                [user.Email],
-                f"""
+                subject="Doctor Account Created",
+                recipients=[user.Email],
+                body=f"""
 Dear Dr. {doc.FName} {doc.LName},
 
 Welcome to Marvel Hospitals.
 
-Login Email : {user.Email}
-Password : doctor123
+━━━━━━━━━━━━━━━━━━━━━━━
+Login Credentials
+━━━━━━━━━━━━━━━━━━━━━━━
 
-Regards
+Email    : {user.Email}
+Password : {raw_password}
+
+⚠️ IMPORTANT:
+Please change your password after first login.
+
+Regards,
 Marvel Hospitals
 """
             )
 
-        _log(db, "ADD_DOCTOR", f"Dr. {doc.FName} {doc.LName} added")
+        _log(
+            db,
+            "ADD_DOCTOR",
+            f"Dr. {doc.FName} {doc.LName} added"
+        )
 
         return jsonify({"ok": True})
-    
-
 # =================================================================═════════════════════════════════════════════════════════════
 #  API — Doctors CRUD (continued)   
 # =================================================================═════════════════════════════════════════════════════════════
@@ -1129,11 +1144,8 @@ def reply_message():
     try:
 
         message_id = request.form.get("message_id")
-
         to_email = request.form.get("to_email")
-
         subject = request.form.get("subject")
-
         reply_body = request.form.get("reply_body")
 
         # GET ORIGINAL MESSAGE
@@ -1148,12 +1160,10 @@ def reply_message():
             return redirect("/admin/messages")
 
         # SEND EMAIL
-        email = Message(
+        current_app.send_email(
             subject=subject,
-            recipients=[to_email]
-        )
-
-        email.body = f"""
+            recipients=[to_email],
+            body=f"""
 Hello {msg.name},
 
 {reply_body}
@@ -1162,8 +1172,7 @@ Regards,
 Marvel Hospitals
 Support Team
 """
-
-        mail.send(email)
+        )
 
         # UPDATE STATUS
         msg.status = "Read"
