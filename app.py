@@ -4,25 +4,28 @@ Flask application entry point
 """
 
 from flask import Flask, session, redirect
-from flask_mail import Message
 from flask_migrate import Migrate
 
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+import os
 import config
-from config import mail
 
 # 🔹 DATABASE
 from database import db
 
 # 🔹 BLUEPRINTS
-from routes.common_routes       import common_bp
-from routes.admin_routes        import admin_bp
+from routes.common_routes import common_bp
+from routes.admin_routes import admin_bp
 from routes.receptionist_routes import receptionist_bp
-from routes.doctor_routes       import doctor_bp
-from routes.patient_routes      import patient_bp
-from routes.auditor_routes      import auditor_bp
-from routes.billing_routes      import billing_bp
-from routes.public_routes       import public_bp
-#from routes.chatbot_routes      import chatbot_bp   # ✅ NEW (Ollama chatbot)
+from routes.doctor_routes import doctor_bp
+from routes.patient_routes import patient_bp
+from routes.auditor_routes import auditor_bp
+from routes.billing_routes import billing_bp
+from routes.public_routes import public_bp
+
+# from routes.chatbot_routes import chatbot_bp
 
 
 # ─────────────────────────────────────────────────────────
@@ -47,18 +50,12 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # 🔹 INIT EXTENSIONS
-    # 🔹 INIT EXTENSIONS
     db.init_app(app)
 
     Migrate(app, db)
-    mail.init_app(app)
-
-    print("MAIL SERVER:", app.config.get("MAIL_SERVER"))
-    print("MAIL USER:", app.config.get("MAIL_USERNAME"))
-    print("SENDGRID KEY EXISTS:", bool(app.config.get("MAIL_PASSWORD")))
 
     # ─────────────────────────────────────────────────────
-    # GLOBAL EMAIL FUNCTION
+    # GLOBAL EMAIL FUNCTION (SendGrid API)
     # ─────────────────────────────────────────────────────
     def send_email(subject, recipients, body):
 
@@ -70,18 +67,25 @@ def create_app():
         if not recipients:
             return
 
-        msg = Message(
+        message = Mail(
+            from_email="shaik.karim3214@gmail.com",
+            to_emails=recipients,
             subject=subject,
-            recipients=recipients,
-            body=body
+            plain_text_content=body
         )
 
         try:
-            mail.send(msg)
+            sg = SendGridAPIClient(
+                os.environ.get("SENDGRID_API_KEY")
+            )
+
+            response = sg.send(message)
+
             print("Email sent successfully")
+            print("Status Code:", response.status_code)
 
         except Exception as e:
-            print("Email Error:", e)
+            print("SendGrid Error:", e)
 
     app.send_email = send_email
 
@@ -121,8 +125,10 @@ def create_app():
     @app.errorhandler(404)
     def not_found(e):
         return (
-            "<h2 style='font-family:sans-serif;text-align:center;margin-top:4rem'>"
-            "404 — Page not found. <a href='/'>Go home</a></h2>"
+            "<h2 style='font-family:sans-serif;"
+            "text-align:center;margin-top:4rem'>"
+            "404 — Page not found. "
+            "<a href='/'>Go home</a></h2>"
         ), 404
 
     return app
