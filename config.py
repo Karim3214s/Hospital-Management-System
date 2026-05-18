@@ -34,16 +34,17 @@ PAGINATION = {
 }
 
 # ── Mail Configuration ───────────────────────
-MAIL_SERVER = "smtp.gmail.com"
+MAIL_SERVER = "smtp.sendgrid.net"
 MAIL_PORT = 587
 MAIL_USE_TLS = True
+MAIL_TIMEOUT = 10
 
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+MAIL_USERNAME = "apikey"
+MAIL_PASSWORD = os.environ.get("SENDGRID_API_KEY")
 
 MAIL_DEFAULT_SENDER = (
     "HMS",
-    os.environ.get("MAIL_USERNAME")
+    "shaik.karim3214@gmail.com"
 )
 
 # ── App meta ─────────────────────────────────
