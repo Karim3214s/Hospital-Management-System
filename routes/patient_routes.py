@@ -6,6 +6,16 @@ import datetime, math
 
 patient_bp = Blueprint("patient", __name__)
 
+import pytz
+
+IST = pytz.timezone("Asia/Kolkata")
+
+def ist_now():
+    return datetime.datetime.now(IST)
+
+def ist_today():
+    return ist_now().date()
+
 # ─────────────────────────────────────────────────────────────
 # helpers
 # ─────────────────────────────────────────────────────────────
@@ -114,7 +124,7 @@ def api_appointments():
 
     db    = next(get_db())
     pid   = _patient_id()
-    today = datetime.date.today()
+    today = ist_today()
 
     q = db.query(Appointment, Doctor, Department, Bill)\
     .join(Doctor, Doctor.doct_Id == Appointment.doct_Id)\
@@ -176,8 +186,14 @@ def cancel_appointment(aid):
     db = next(get_db())
 
     appt = db.query(Appointment).filter(
-        Appointment.appointment_Id == aid
-    ).first()
+    Appointment.appointment_Id == aid,
+    Appointment.patient_Id == _patient_id()
+).first()
+    
+    if not appt:
+        return jsonify({
+            "error": "Appointment not found"
+        }), 404
 
     appt.appointment_status = "Cancelled"
 
@@ -264,13 +280,31 @@ def patient_book():
 
             except:
                 return jsonify({"error": f"Invalid slot format: {slot_str}"}), 400
+            
+    existing = db.query(Appointment).filter(
+    Appointment.doct_Id == body["doctor_id"],
+    Appointment.appointment_Date == appointment_date,
+    Appointment.slot_time == slot_time,
+    Appointment.appointment_status.in_([
+    "Scheduled",
+    "Checked In"
+])
+    ).first()
+
+    if existing:
+
+        return jsonify({
+            "error": "Selected slot already booked"
+        }), 400
 
 
     # 🔥 CREATE APPOINTMENT
     appt = Appointment(
         patient_Id = session["entity_id"],
         doct_Id = body["doctor_id"],
-        appointment_Date = body["date"],
+        appointment_date = datetime.date.fromisoformat(
+    body["date"]
+),
         slot_time = slot_time,
         appointment_status = "Scheduled",
         reason = body.get("reason"),
@@ -280,17 +314,8 @@ def patient_book():
     db.add(appt)
     db.commit()
 
-    bill = Bill(
-        patient_Id = session["entity_id"],
-        appointment_Id = appt.appointment_Id,
-        total_amount = consultation_fee,
-        amount_paid = 0,
-        balance = consultation_fee,
-        bill_status = "Pending",
-        bill_date = datetime.date.today()
-    )
+    
 
-    db.add(bill)
     db.commit()
 
     return {"ok": True}

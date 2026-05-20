@@ -7,8 +7,11 @@ from models import (Doctor, Appointment, Patient, MedicalRecord,
                     Department, Bill, AuditLog, TreatmentCatalogue, User, DoctorLeave)
 from config import PAGINATION
 import datetime, math
+import pytz
 from datetime import datetime, date
 from sqlalchemy import case
+
+IST = pytz.timezone("Asia/Kolkata")
 
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/doctor")
 
@@ -34,7 +37,7 @@ def _log(db, action, entity=None, detail=None):
     db.add(AuditLog(
         user_id=session.get("user_id"), user_name=session.get("user_name",""),
         role="Doctor", action=action, entity=entity, detail=detail,
-        timestamp=datetime.now()
+        timestamp=datetime.now(IST)
     ))
     db.commit()
 
@@ -84,7 +87,7 @@ def api_calendar_stats():
             "scheduled": 0
         })
 
-    today = datetime.now().date()
+    today = datetime.now(IST).date()
 
     today_q = db.query(Appointment).filter(
         Appointment.doct_Id == did,
@@ -134,7 +137,7 @@ def api_doctor_appointments():
     db  = next(get_db())
     did = _doctor_id()
 
-    today = datetime.now().date()
+    today = datetime.now(IST).date()
 
     q = db.query(Appointment, Patient)\
           .join(Patient, Patient.patient_Id == Appointment.patient_Id)\
@@ -182,7 +185,7 @@ def api_doctor_appointments():
 
 
     # ---------- AUTO COMPLETE ----------
-    now = datetime.now()
+    now = datetime.now(IST)
 
     for appt, patient in rows:
 
@@ -199,7 +202,7 @@ def api_doctor_appointments():
 
             if appt_dt < now:
                 appt.appointment_status = "Completed"
-                appt.completed_at = datetime.now()
+                appt.completed_at = datetime.now(IST)
 
     db.commit()
 
@@ -664,7 +667,7 @@ def complete_appt(id):
         }), 400
 
     a.appointment_status = "Completed"
-    a.completed_at = datetime.now()
+    a.completed_at = datetime.now(IST)
 
     db.commit()
 

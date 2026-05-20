@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+import pytz
 from flask import Blueprint, render_template, request, session, redirect, jsonify
 from sqlalchemy import func, and_
 from database import db, get_db
@@ -11,6 +11,13 @@ from models import Patient, User
 import razorpay
 from dateutil.relativedelta import relativedelta
 
+IST = pytz.timezone("Asia/Kolkata")
+
+def ist_now():
+    return datetime.datetime.now(IST)
+
+def ist_today():
+    return ist_now().date()
 
 razorpay_client = razorpay.Client(auth=("rzp_test_Sg1XNkaEMXPDyB", "KqK3L7z3UueGR0yEUpQ3MQNj"))
 receptionist_bp = Blueprint("receptionist", __name__, url_prefix="/receptionist")
@@ -26,7 +33,7 @@ def _log(db, action, entity=None, detail=None):
     db.add(AuditLog(
         user_id=session.get("user_id"), user_name=session.get("user_name",""),
         role=session.get("role",""), action=action, entity=entity, detail=detail,
-        timestamp=datetime.datetime.now()
+        timestamp=ist_now()
     ))
     db.commit()
 
@@ -82,7 +89,7 @@ def api_dashboard_stats():
     g = _guard()
     if g: return jsonify({"detail":"Forbidden"}), 403
     db    = next(get_db())
-    today = datetime.date.today()
+    today = ist_today()
 
     appts_today    = db.query(func.count(Appointment.appointment_Id))\
                        .filter(Appointment.appointment_Date == today).scalar() or 0
@@ -114,7 +121,7 @@ def api_today_queue():
     page     = int(request.args.get("page", 1))
     per_page = PAGINATION["appointments"]
     db       = next(get_db())
-    today    = datetime.date.today()
+    today    = ist_today()
 
     q = db.query(Appointment, Patient, Doctor, Department)\
           .join(Patient,    Patient.patient_Id == Appointment.patient_Id)\
@@ -263,7 +270,7 @@ def api_slots():
     # ─────────────────────────────────────────────
     # CURRENT TIME + BUFFER
     # ─────────────────────────────────────────────
-    now = datetime.datetime.now()
+    now = ist_now()
 
     buffer_time = (
         now + datetime.timedelta(minutes=30)
@@ -333,7 +340,7 @@ def api_pending_checkin():
     per_page = PAGINATION["appointments"]
     search   = request.args.get("search","").strip()
     db       = next(get_db())
-    today    = datetime.date.today()
+    today    = ist_today()
 
     q = db.query(Appointment, Patient, Doctor, Department)\
           .join(Patient,    Patient.patient_Id == Appointment.patient_Id)\
@@ -723,7 +730,7 @@ def _time_since(dt):
     """Helper to show time elapsed since completion"""
     if not dt:
         return "—"
-    delta = datetime.datetime.now() - dt
+    delta = ist_now() - dt
     if delta.days > 0:
         return f"{delta.days}d ago"
     hours = delta.seconds // 3600
@@ -859,7 +866,7 @@ def api_check_in(appointment_id):
     
     # ✅ UPDATE STATUS TO CHECKED-IN
     appt.appointment_status = "Checked-In"
-    appt.checked_in_at = datetime.datetime.now()
+    appt.checked_in_at = ist_now()
     db.commit()
     
     # ✅ LOG WITH OPID FORMAT
@@ -983,7 +990,7 @@ def api_generate_bill():
         amount_paid=0,
         balance=total_amount,
         bill_status="Pending",
-        bill_date=datetime.date.today(),
+        bill_date=ist_today(),
         created_by=session.get("user_id")
     )
     
@@ -1017,7 +1024,7 @@ def check_in_patient(aid):
         return jsonify({"error": "Appointment not found"}), 404
 
     appt.appointment_status = "Checked-In"
-    appt.checked_in_at = datetime.datetime.now()
+    appt.checked_in_at = ist_now()
 
     db.commit()
 
@@ -1043,7 +1050,7 @@ def api_analytics_summary():
     if g: return jsonify({"detail":"Forbidden"}), 403
 
     db = next(get_db())
-    today = datetime.date.today()
+    today = ist_today()
 
     return jsonify({
         "today_appointments": db.query(func.count(Appointment.appointment_Id))
@@ -1070,7 +1077,7 @@ def api_appointment_trend():
     if g: return jsonify({"detail":"Forbidden"}), 403
 
     db = next(get_db())
-    today = datetime.date.today()
+    today = ist_today()
 
     data = {}
     for i in range(29, -1, -1):
@@ -1148,7 +1155,7 @@ def api_doctor_queue():
     if g: return jsonify({"detail":"Forbidden"}), 403
 
     db = next(get_db())
-    today = datetime.date.today()
+    today = ist_today()
 
     rows = db.query(
         Doctor.FName,
@@ -1182,7 +1189,7 @@ def api_registrations():
     data = {r[0]: r[1] for r in rows}
 
     labels, counts = [], []
-    today = datetime.date.today()
+    today = ist_today()
 
     for i in range(5, -1, -1):
         m = today - relativedelta(months=i)
