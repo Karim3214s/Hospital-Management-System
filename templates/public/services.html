@@ -1186,6 +1186,36 @@
 </script>
 
 <script>
+  const hospitalKeywords = [
+  "hospital",
+  "doctor",
+  "appointment",
+  "bill",
+  "billing",
+  "report",
+  "fever",
+  "pain",
+  "cough",
+  "medicine",
+  "department",
+  "specialist",
+  "symptom",
+  "treatment",
+  "health",
+  "emergency"
+];
+
+const isHospitalQuery = hospitalKeywords.some(
+  word => lowerMsg.includes(word)
+);
+
+if (!isHospitalQuery) {
+  addMessage(
+    "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
+    "bot"
+  );
+  return;
+}
   /* ═══════════════════════════════════════════════════════════════════════
      ADVANCED CHATBOT JAVASCRIPT WITH NLP
      ═══════════════════════════════════════════════════════════════════════ */
@@ -1387,73 +1417,75 @@
   // Process Message with NLP
   async function processMessageWithNLP(message) {
 
-  const lowerMsg = message.toLowerCase();
-  const lastIntent = chatbotState.userContext.lastIntent || null;
-const intent = detectIntent(lowerMsg);
+    const lowerMsg = message.toLowerCase();
+    const lastIntent = chatbotState.userContext.lastIntent || null;
+    const intent = detectIntent(lowerMsg);
 
-// 🔥 SPECIAL CONTEXT HANDLING
-if (
-  (lowerMsg.includes("department") || lowerMsg.includes("each")) &&
-  lastIntent === "doctors"
-) {
-  const response = generateDoctorsByDepartment();
-  addMessage(response, 'bot');
-  return;
-}
+    // 🔥 SPECIAL CONTEXT HANDLING
+    if (
+      (lowerMsg.includes("department") || lowerMsg.includes("each")) &&
+      lastIntent === "doctors"
+    ) {
+      const response = generateDoctorsByDepartment();
+      addMessage(response, 'bot');
+      return;
+    }
 
-function generateDoctorsByDepartment() {
-  let html = '<p><strong>Doctors by Department:</strong></p>';
+    function generateDoctorsByDepartment() {
+      let html = '<p><strong>Doctors by Department:</strong></p>';
 
-  for (const dept of Object.values(knowledgeBase.departments)) {
-    html += `
+      for (const dept of Object.values(knowledgeBase.departments)) {
+        html += `
       <div class="dept-card">
         <strong>${dept.name}</strong><br>
         ${dept.doctors.map(d => `• ${d}`).join('<br>')}
       </div>
     `;
-  }
-
-  return html;
-}
-
-  // ✅ Rule-based (fast actions)
-  if (intent !== 'unknown') {
-    const response = generateResponse(intent, lowerMsg);
-    addMessage(response, 'bot');
-  } 
-  
-  // 🔥 AI fallback
-  else {
-    try {
-      const res = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ message })
-      });
-
-      const data = await res.json();
-      let reply = data.reply || "Hmm... I didn’t get that. Can you rephrase?";
-
-      // 🔥 ACTION HANDLING
-      if (reply.includes("ACTION:BOOK_APPOINTMENT")) {
-        window.location.href = "/appointment";
-        return;
       }
 
-      if (reply.includes("ACTION:VIEW_BILL")) {
-        window.location.href = "/billing";
-        return;
+      return html;
+    }
+
+    // ✅ Rule-based (fast actions)
+    if (intent !== 'unknown') {
+      const response = generateResponse(intent, lowerMsg);
+      addMessage(response, 'bot');
+    }
+
+    // 🔥 AI fallback
+    else {
+      try {
+        const res = await fetch("/api/chatbot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        let reply = data.reply || "Hmm... I didn’t get that. Can you rephrase?";
+
+        // 🔥 ACTION HANDLING
+        // Redirect ONLY if Gemini returns exactly the action
+
+        if (reply.trim() === "ACTION:BOOK_APPOINTMENT") {
+          window.location.href = "/appointment";
+          return;
+        }
+
+        if (reply.trim() === "ACTION:VIEW_BILL") {
+          window.location.href = "/billing";
+          return;
+        }
+
+        addMessage(reply, 'bot');
+
+      } catch (err) {
+        addMessage("Something went wrong.", 'bot');
       }
-
-      addMessage(reply, 'bot');
-
-    } catch (err) {
-      addMessage("Something went wrong.", 'bot');
     }
   }
-}
 
   function resetChat() {
     const container = document.getElementById('chatbotMessages');
@@ -1479,7 +1511,7 @@ function generateDoctorsByDepartment() {
     chatbotState.messageCount = 0;
 
     localStorage.removeItem('hms_chat_history');
-}
+  }
 
   // Detect Intent using NLP
   function detectIntent(message) {
@@ -1909,7 +1941,7 @@ function generateDoctorsByDepartment() {
   });
 
   chatbotState.userContext.lastIntent = intent;
-chatbotState.userContext.lastMessage = lowerMsg;
+  chatbotState.userContext.lastMessage = lowerMsg;
 
 </script>
 {% endblock %}
