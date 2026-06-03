@@ -1186,36 +1186,7 @@
 </script>
 
 <script>
-  const hospitalKeywords = [
-  "hospital",
-  "doctor",
-  "appointment",
-  "bill",
-  "billing",
-  "report",
-  "fever",
-  "pain",
-  "cough",
-  "medicine",
-  "department",
-  "specialist",
-  "symptom",
-  "treatment",
-  "health",
-  "emergency"
-];
 
-const isHospitalQuery = hospitalKeywords.some(
-  word => lowerMsg.includes(word)
-);
-
-if (!isHospitalQuery) {
-  addMessage(
-    "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
-    "bot"
-  );
-  return;
-}
   /* ═══════════════════════════════════════════════════════════════════════
      ADVANCED CHATBOT JAVASCRIPT WITH NLP
      ═══════════════════════════════════════════════════════════════════════ */
@@ -1418,8 +1389,61 @@ if (!isHospitalQuery) {
   async function processMessageWithNLP(message) {
 
     const lowerMsg = message.toLowerCase();
+    const hospitalKeywords = [
+  "hospital",
+  "doctor",
+  "appointment",
+  "bill",
+  "billing",
+  "report",
+  "fever",
+  "pain",
+  "cough",
+  "cold",
+  "headache",
+  "migraine",
+  "vomiting",
+  "dizziness",
+  "stomach",
+  "chest",
+  "heart",
+  "bp",
+  "blood",
+  "sugar",
+  "diabetes",
+  "infection",
+  "injury",
+  "fracture",
+  "scan",
+  "mri",
+  "xray",
+  "medicine",
+  "department",
+  "specialist",
+  "symptom",
+  "treatment",
+  "health",
+  "emergency"
+];
+
+    const isHospitalQuery = hospitalKeywords.some(
+      word => lowerMsg.includes(word)
+    );
+
+    if (
+      detectIntent(lowerMsg) === "unknown" &&
+      !isHospitalQuery
+    ) {
+      addMessage(
+        "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
+        "bot"
+      );
+      return;
+    }
     const lastIntent = chatbotState.userContext.lastIntent || null;
     const intent = detectIntent(lowerMsg);
+    chatbotState.userContext.lastIntent = intent;
+    chatbotState.userContext.lastMessage = lowerMsg;
 
     // 🔥 SPECIAL CONTEXT HANDLING
     if (
@@ -1939,9 +1963,6 @@ if (!isHospitalQuery) {
     handleScrollButtonVisibility();
     localStorage.removeItem('hms_chat_history');
   });
-
-  chatbotState.userContext.lastIntent = intent;
-  chatbotState.userContext.lastMessage = lowerMsg;
 
 </script>
 {% endblock %}
