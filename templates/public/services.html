@@ -1181,885 +1181,419 @@
 </div>
 
 <!-- Chatbot Styles -->
+
 <script>
   const APPOINTMENT_URL = "{{ url_for('public.appointment') }}";
-</script>
 
-<script>
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     ADVANCED CHATBOT JAVASCRIPT WITH NLP
-     ═══════════════════════════════════════════════════════════════════════ */
-
-  // Configuration
+  /* ═══════════════════════════════════════════════════════
+     CONFIG & STATE
+  ═══════════════════════════════════════════════════════ */
   const CHATBOT_CONFIG = {
-    apiEndpoint: '/api/chatbot',  // Your backend endpoint
     supportPhone: '+91-7569486938',
     supportEmail: 'support@marvelhospitals.com',
     enableVoice: true,
-    enablePersistence: false,
     maxMessageLength: 500
   };
 
-  // State Management
   const chatbotState = {
     isOpen: false,
     isMinimized: false,
     messageCount: 0,
     conversationId: null,
-
-    userContext: {
-      lastIntent: null,
-      lastDepartment: null,
-      lastMessage: null
-    },
-
+    userContext: { lastIntent: null, lastDepartment: null, lastMessage: null },
     messageHistory: []
   };
 
-
-  // NLP Intent Patterns
+  /* ═══════════════════════════════════════════════════════
+     INTENT PATTERNS  (JS handles these — zero API calls)
+  ═══════════════════════════════════════════════════════ */
   const intentPatterns = {
-    greeting: /^(hi|hello|hey|good morning|good evening|good afternoon|greetings)/i,
-    farewell: /^(bye|goodbye|see you|thanks|thank you|thats all)/i,
-    appointment: /(book|schedule|appointment|consultation|visit|see doctor)/i,
-    emergency: /(emergency|urgent|critical|help|ambulance|911|108)/i,
-    services: /(service|department|facility|treatment|speciality|specialty)/i,
-    doctors: /(doctor|doctors|physician|specialist|surgeon|consultant)/i,
-    location: /(where|location|address|direction|map|how to reach)/i,
-    hours: /(hour|time|open|close|timing|schedule|when)/i,
-    cost: /(cost|price|fee|charge|bill|payment|insurance)/i,
-    reports: /(report|result|test|lab|xray|scan|mri)/i,
-    prescription: /(medicine|prescription|drug|medication|pharmacy)/i
+    greeting: /^(hi|hello|hey|good\s?(morning|evening|afternoon)|greetings)/i,
+    farewell: /^(bye|goodbye|see you|thanks?|thank you|that'?s? all)/i,
+    appointment: /(book|schedule|appointment|consultation|visit|see\s+a?\s*doctor)/i,
+    emergency: /(emergency|urgent|critical|ambulance|108\b)/i,
+    services: /\b(service|department|facility|treatment|special[it]y)\b/i,
+    doctors: /\b(doctor|physician|specialist|surgeon|consultant)\b/i,
+    location: /\b(where|location|address|direction|map|reach|how to get)\b/i,
+    hours: /\b(hour|time|open|close|timing|schedule|when\s+are)\b/i,
+    cost: /\b(cost|price|fee|charge|bill|payment|insurance|how much)\b/i,
+    reports: /\b(report|result|test|lab|x.?ray|scan|mri)\b/i,
+    // ✅ NEW — catches symptom sentences before they fall to API
+    symptoms: /\b(fever|cough|cold|headache|migraine|vomiting|nausea|dizziness|stomach|chest pain|back pain|fatigue|tired|weakness|breathless|shortness of breath|sore throat|rash|swelling|bleeding|injury|fracture|pain|ache|ill|sick|unwell|not feeling|feeling)\b/i,
   };
 
-  // Knowledge Base (Enhanced)
+  /* ═══════════════════════════════════════════════════════
+     DEPARTMENT KEYWORDS  (JS handles these too)
+  ═══════════════════════════════════════════════════════ */
   const knowledgeBase = {
     departments: {
-      cardiology: {
-        name: 'Cardiology',
-        keywords: ['heart', 'cardiac', 'cardio', 'chest pain', 'bp', 'blood pressure'],
-        services: ['Angioplasty', 'Pacemaker', 'ECG', 'Echo'],
-        doctors: ['Dr. Rajesh Kumar', 'Dr. Priya Sharma']
-      },
-      neurology: {
-        name: 'Neurology & Neurosurgery',
-        keywords: ['brain', 'neuro', 'headache', 'migraine', 'stroke', 'seizure'],
-        services: ['Brain Surgery', 'Spine Surgery', 'Stroke Care'],
-        doctors: ['Dr. Amit Patel', 'Dr. Sunita Reddy']
-      },
-      orthopedics: {
-        name: 'Orthopaedics',
-        keywords: ['bone', 'joint', 'fracture', 'knee', 'hip', 'back pain', 'spine'],
-        services: ['Joint Replacement', 'Sports Injury', 'Fracture Care'],
-        doctors: ['Dr. Vikram Singh', 'Dr. Kavita Mehta']
-      },
-      gynecology: {
-        name: 'Gynaecology & Obstetrics',
-        keywords: ['pregnancy', 'women', 'gynec', 'obstetrics', 'delivery', 'maternity'],
-        services: ['Prenatal Care', 'High-Risk Pregnancy', 'Fertility'],
-        doctors: ['Dr. Sneha Desai', 'Dr. Ritu Agarwal']
-      },
-      pediatrics: {
-        name: 'Pediatrics',
-        keywords: ['child', 'children', 'kids', 'baby', 'infant', 'vaccination'],
-        services: ['Child Care', 'NICU', 'Vaccination'],
-        doctors: ['Dr. Ramesh Yadav', 'Dr. Anita Joshi']
-      }
+      cardiology: { name: 'Cardiology', keywords: ['heart', 'cardiac', 'cardio', 'chest pain', 'bp', 'blood pressure', 'palpitation'], services: ['Angioplasty', 'Pacemaker', 'ECG', 'Echo'], doctors: ['Dr. Rajesh Kumar', 'Dr. Priya Sharma'] },
+      neurology: { name: 'Neurology & Neurosurgery', keywords: ['brain', 'neuro', 'headache', 'migraine', 'stroke', 'seizure', 'epilepsy', 'numbness'], services: ['Brain Surgery', 'Spine Surgery', 'Stroke Care'], doctors: ['Dr. Amit Patel', 'Dr. Sunita Reddy'] },
+      orthopedics: { name: 'Orthopaedics', keywords: ['bone', 'joint', 'fracture', 'knee', 'hip', 'back pain', 'spine', 'sprain', 'ligament'], services: ['Joint Replacement', 'Sports Injury', 'Fracture Care'], doctors: ['Dr. Vikram Singh', 'Dr. Kavita Mehta'] },
+      gynecology: { name: 'Gynaecology & Obstetrics', keywords: ['pregnancy', 'women', 'gynec', 'obstetrics', 'delivery', 'maternity', 'ivf', 'fertility'], services: ['Prenatal Care', 'High-Risk Pregnancy', 'Fertility'], doctors: ['Dr. Sneha Desai', 'Dr. Ritu Agarwal'] },
+      pediatrics: { name: 'Pediatrics', keywords: ['child', 'children', 'kids', 'baby', 'infant', 'vaccination', 'newborn'], services: ['Child Care', 'NICU', 'Vaccination'], doctors: ['Dr. Ramesh Yadav', 'Dr. Anita Joshi'] },
+      general: { name: 'General Medicine', keywords: ['fever', 'cough', 'cold', 'flu', 'viral', 'infection', 'fatigue', 'weakness', 'general', 'medicine', 'vomit', 'nausea', 'diarrhoea', 'diarrhea', 'dizziness', 'sore throat', 'rash', 'allergy'], services: ['OPD Consultation', 'Diabetes Care', 'Preventive Check-ups'], doctors: ['Dr. Suresh Babu', 'Dr. Meena Reddy'] }
     },
-
     responses: {
-      greeting: [
-        "Hello! 👋 Welcome to Marvel. How can I assist you today?",
-        "Hi there! I'm here to help. What can I do for you?",
-        "Good day! How may I help you with your healthcare needs?"
-      ],
-      farewell: [
-        "Thank you for chatting! Take care and stay healthy! 🌟",
-        "Goodbye! Feel free to reach out anytime. Have a great day!",
-        "It was nice helping you. Wishing you good health! 👋"
-      ],
-      default: [
-        "I'm not quite sure about that. Could you rephrase your question?",
-        "Let me connect you with our team for better assistance.",
-        "I didn't quite catch that. Can you try asking in a different way?"
-      ]
+      greeting: ["Hello! 👋 Welcome to Marvel Hospitals. How can I assist you today?", "Hi there! I'm your Marvel assistant. What can I do for you?"],
+      farewell: ["Thank you for chatting! Stay healthy! 🌟", "Goodbye! Feel free to reach out anytime. Have a great day!"],
+      default: ["I'm not quite sure about that. Could you rephrase?", "Let me know how I can help with your healthcare needs."]
     }
   };
 
-  // Initialize Chatbot
+  /* ═══════════════════════════════════════════════════════
+     INTENT DETECTOR
+  ═══════════════════════════════════════════════════════ */
+  function detectIntent(msg) {
+    // Check named intents first
+    for (const [intent, pattern] of Object.entries(intentPatterns)) {
+      if (pattern.test(msg)) return intent;
+    }
+    // Check department keywords
+    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
+      if (dept.keywords.some(kw => msg.includes(kw))) return 'department_' + key;
+    }
+    return 'unknown';
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SYMPTOM → DEPARTMENT MAPPER
+     Maps symptom keywords to the most relevant department
+  ═══════════════════════════════════════════════════════ */
+  function mapSymptomToDepartment(msg) {
+    const symptomMap = [
+      { keywords: ['chest pain', 'palpitation', 'bp', 'blood pressure', 'heart'], dept: 'cardiology' },
+      { keywords: ['headache', 'migraine', 'stroke', 'seizure', 'brain', 'numbness'], dept: 'neurology' },
+      { keywords: ['knee', 'hip', 'fracture', 'back pain', 'bone', 'joint', 'sprain'], dept: 'orthopedics' },
+      { keywords: ['pregnancy', 'delivery', 'maternity', 'fertility'], dept: 'gynecology' },
+      { keywords: ['child', 'baby', 'infant', 'vaccination'], dept: 'pediatrics' },
+      { keywords: ['fever', 'cough', 'cold', 'vomit', 'nausea', 'dizziness', 'sore throat', 'rash', 'fatigue', 'tired', 'weakness', 'ill', 'sick', 'unwell', 'pain', 'ache'], dept: 'general' },
+    ];
+    for (const { keywords, dept } of symptomMap) {
+      if (keywords.some(kw => msg.includes(kw))) return dept;
+    }
+    return 'general'; // safe default
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     RESPONSE GENERATORS  (pure JS, no API)
+  ═══════════════════════════════════════════════════════ */
+  function generateSymptomResponse(msg) {
+    const deptKey = mapSymptomToDepartment(msg);
+    const dept = knowledgeBase.departments[deptKey];
+    chatbotState.userContext.lastDepartment = dept.name;
+
+    return `
+    <p>I'm sorry to hear that. Based on your symptoms, I'd recommend visiting our <strong>${dept.name}</strong> department.</p>
+    <p><strong>Our specialists:</strong> ${dept.doctors.join(', ')}</p>
+    <p><strong>Services:</strong> ${dept.services.join(' · ')}</p>
+    <p>Would you like to book an appointment?</p>
+    <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+      <i class="icofont-calendar"></i> Book Appointment
+    </button>
+  `;
+  }
+
+  function generateAppointmentResponse() {
+    return `
+    <p><strong>Book an Appointment</strong></p>
+    <p>Choose how you'd like to proceed:</p>
+    <div class="response-options">
+      <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+        <i class="icofont-calendar"></i> Book Online Now
+      </button>
+      <button class="option-btn" onclick="callHospital()">
+        <i class="icofont-phone"></i> Call ${CHATBOT_CONFIG.supportPhone}
+      </button>
+    </div>
+    <p><small>💡 Online booking is available 24/7</small></p>
+  `;
+  }
+
+  function generateEmergencyResponse() {
+    return `
+    <div class="alert-message emergency">
+      <p><strong>🚨 EMERGENCY</strong></p>
+      <p><strong>24/7 Emergency Services Available</strong></p>
+      <p>📞 Helpline: <strong>${CHATBOT_CONFIG.supportPhone}</strong></p>
+      <p>🚑 Ambulance: <strong>108</strong></p>
+      <button class="option-btn emergency-btn" onclick="callEmergency()">
+        <i class="icofont-phone"></i> Call Emergency Now
+      </button>
+    </div>
+  `;
+  }
+
+  function generateServicesResponse() {
+    let html = '<p><strong>Our Departments:</strong></p>';
+    for (const dept of Object.values(knowledgeBase.departments)) {
+      html += `<div class="dept-card"><strong>${dept.name}</strong><small>${dept.services.join(', ')}</small></div>`;
+    }
+    return html;
+  }
+
+  function generateDoctorsResponse() {
+    let html = '<p><strong>Our Specialist Doctors:</strong></p>';
+    for (const dept of Object.values(knowledgeBase.departments)) {
+      dept.doctors.forEach(d => {
+        html += `<div class="doctor-card"><i class="icofont-doctor-alt"></i><div><strong>${d}</strong><small>${dept.name}</small></div></div>`;
+      });
+    }
+    return html;
+  }
+
+  function generateLocationResponse() {
+    return `
+    <p><strong>📍 Our Location</strong></p>
+    <p>Marvel Hospitals<br>123 Healthcare Avenue<br>Medical District, City — 500001</p>
+    <button class="option-btn" onclick="window.open('https://maps.google.com','_blank')">
+      <i class="icofont-location-pin"></i> Get Directions
+    </button>
+  `;
+  }
+
+  function generateHoursResponse() {
+    return `
+    <p><strong>⏰ Operating Hours</strong></p>
+    <p><strong>OPD:</strong> Mon–Sat, 8 AM – 8 PM</p>
+    <p><strong>Emergency:</strong> 24/7</p>
+    <p><strong>Pharmacy:</strong> 24/7</p>
+    <p><strong>Lab:</strong> Mon–Sat, 7 AM – 9 PM</p>
+  `;
+  }
+
+  function generateCostResponse() {
+    return `
+    <p><strong>💰 Consultation Fees</strong></p>
+    <ul>
+      <li>General Medicine: ₹500</li>
+      <li>Specialist: ₹800–1200</li>
+      <li>Super Specialist: ₹1500–2000</li>
+    </ul>
+    <p><small>We accept all major insurance providers</small></p>
+  `;
+  }
+
+  function generateDepartmentResponse(deptKey) {
+    const dept = knowledgeBase.departments[deptKey];
+    chatbotState.userContext.lastDepartment = dept.name;
+    return `
+    <p><strong>${dept.name}</strong></p>
+    <p><strong>Services:</strong></p>
+    <ul>${dept.services.map(s => `<li>${s}</li>`).join('')}</ul>
+    <p><strong>Doctors:</strong> ${dept.doctors.join(', ')}</p>
+    <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+      <i class="icofont-calendar"></i> Book Appointment
+    </button>
+  `;
+  }
+
+  function generateResponse(intent, msg) {
+    switch (intent) {
+      case 'greeting': return knowledgeBase.responses.greeting[Math.floor(Math.random() * 2)];
+      case 'farewell': return knowledgeBase.responses.farewell[Math.floor(Math.random() * 2)];
+      case 'appointment': return generateAppointmentResponse();
+      case 'emergency': return generateEmergencyResponse();
+      case 'services': return generateServicesResponse();
+      case 'doctors': return generateDoctorsResponse();
+      case 'location': return generateLocationResponse();
+      case 'hours': return generateHoursResponse();
+      case 'cost': return generateCostResponse();
+      // ✅ symptoms handled fully in JS — no API call
+      case 'symptoms': return generateSymptomResponse(msg);
+      default:
+        if (intent.startsWith('department_')) {
+          return generateDepartmentResponse(intent.replace('department_', ''));
+        }
+        return null; // null = needs API
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     MAIN MESSAGE PROCESSOR
+     Decision tree: JS first → API only when needed
+  ═══════════════════════════════════════════════════════ */
+  async function processMessageWithNLP(message) {
+    const msg = message.toLowerCase().trim();
+
+    // 1. Context: user confirmed after a department was suggested
+    const confirmWords = ['yes', 'yeah', 'yep', 'ok', 'okay', 'sure'];
+    if (chatbotState.userContext.lastDepartment && confirmWords.includes(msg)) {
+      addMessage(
+        `<button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+        <i class="icofont-calendar"></i> Book Appointment — ${chatbotState.userContext.lastDepartment}
+      </button>`,
+        'bot'
+      );
+      return;
+    }
+
+    // 2. Try JS intent matching (fast, free)
+    const intent = detectIntent(msg);
+    chatbotState.userContext.lastIntent = intent;
+    chatbotState.userContext.lastMessage = msg;
+
+    const jsResponse = generateResponse(intent, msg);
+    if (jsResponse !== null) {
+      addMessage(jsResponse, 'bot');
+      return;
+    }
+
+    // 3. Check if it's even hospital-related before calling API
+    const hospitalKeywords = ['hospital', 'doctor', 'appointment', 'bill', 'billing', 'report',
+      'fever', 'pain', 'cough', 'cold', 'headache', 'migraine', 'vomiting', 'dizziness', 'stomach',
+      'chest', 'heart', 'bp', 'blood', 'sugar', 'diabetes', 'infection', 'injury', 'fracture', 'scan',
+      'mri', 'xray', 'medicine', 'department', 'specialist', 'symptom', 'treatment', 'health',
+      'emergency', 'sick', 'ill', 'unwell', 'disease'];
+    const healthPhrases = ['i am', 'i have', 'i feel', 'suffering', 'having', 'experiencing', 'feeling'];
+    const isHospitalQuery = hospitalKeywords.some(kw => msg.includes(kw))
+      || healthPhrases.some(p => msg.includes(p));
+
+    if (!isHospitalQuery) {
+      addMessage("I'm Marvel Hospital's virtual assistant and can only help with hospital-related queries. How can I assist you with your health?", 'bot');
+      return;
+    }
+
+    // 4. API fallback — only for complex/conversational queries that JS can't handle
+    try {
+      const res = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      const data = await res.json();
+      let reply = data.reply || "I didn't quite catch that. Could you rephrase?";
+
+      // Update department context from API reply
+      for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
+        if (reply.toLowerCase().includes(dept.name.toLowerCase())) {
+          chatbotState.userContext.lastDepartment = dept.name;
+          break;
+        }
+      }
+
+      addMessage(reply, 'bot');
+    } catch (err) {
+      addMessage("Something went wrong. Please call us at " + CHATBOT_CONFIG.supportPhone, 'bot');
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     UI FUNCTIONS (unchanged structure, kept for completeness)
+  ═══════════════════════════════════════════════════════ */
   document.addEventListener('DOMContentLoaded', function () {
-    initializeChatbot();
-    loadChatHistory();
-    setupEventListeners();
+    chatbotState.conversationId = generateUUID();
+    document.getElementById('chatbotForm').addEventListener('submit', sendMessage);
+    document.getElementById('chatInput').addEventListener('input', updateCharCount);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && chatbotState.isOpen) toggleChatbot(); });
+    setTimeout(() => { if (!chatbotState.isOpen) animateNotificationBadge(); }, 3000);
+    localStorage.removeItem('hms_chat_history');
   });
 
-  function initializeChatbot() {
-    // Generate conversation ID
-    chatbotState.conversationId = generateUUID();
-
-    // Show initial notification after 3 seconds
-    setTimeout(() => {
-      if (!chatbotState.isOpen) {
-        animateNotificationBadge();
-      }
-    }, 3000);
-
-    // Setup input character counter
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-      chatInput.addEventListener('input', updateCharCount);
-    }
-  }
-
-  function setupEventListeners() {
-    // Prevent form submission default
-    const form = document.getElementById('chatbotForm');
-    if (form) {
-      form.addEventListener('submit', sendMessage);
-    }
-
-    // Close on escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && chatbotState.isOpen) {
-        toggleChatbot();
-      }
-    });
-  }
-
-  // Toggle Chatbot
   function toggleChatbot() {
     chatbotState.isOpen = !chatbotState.isOpen;
-
     const launcher = document.getElementById('chatbotLauncher');
     const windowEl = document.getElementById('chatbotWindow');
     const badge = document.getElementById('notificationBadge');
-
     if (chatbotState.isOpen) {
       launcher.style.display = 'none';
       windowEl.classList.add('open');
       badge.classList.add('hidden');
       resetChat();
-
-      setTimeout(() => {
-        document.getElementById('chatInput')?.focus();
-      }, 300);
-
+      setTimeout(() => document.getElementById('chatInput')?.focus(), 300);
       markMessagesAsSeen();
     } else {
       launcher.style.display = 'flex';
       windowEl.classList.remove('open');
       chatbotState.isMinimized = false;
     }
-
-    // 🔥 ADD THIS LINE
-    handleScrollButtonVisibility();
   }
 
-
-  // Minimize Chatbot
   function minimizeChatbot() {
     chatbotState.isMinimized = !chatbotState.isMinimized;
-    const window = document.getElementById('chatbotWindow');
-    window.classList.toggle('minimized');
+    document.getElementById('chatbotWindow').classList.toggle('minimized');
   }
 
-  // Send Message
   function sendMessage(event) {
     if (event) event.preventDefault();
-    else return false;
-
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
-
     if (!message) return;
-
-    // Add user message
     addMessage(message, 'user');
     input.value = '';
     updateCharCount();
-
-    // Hide suggestions
     hideSuggestions();
-
-    // Show typing indicator
     showTypingIndicator();
-
-    // Process with NLP and respond
     setTimeout(() => {
-      processMessageWithNLP(message);
       hideTypingIndicator();
-    }, 1000 + Math.random() * 1000);
-  }
-
-  // Process Message with NLP
-  async function processMessageWithNLP(message) {
-
-    const lowerMsg = message.toLowerCase();
-    const hospitalKeywords = [
-      "hospital",
-      "doctor",
-      "appointment",
-      "bill",
-      "billing",
-      "report",
-      "fever",
-      "pain",
-      "cough",
-      "cold",
-      "headache",
-      "migraine",
-      "vomiting",
-      "dizziness",
-      "stomach",
-      "chest",
-      "heart",
-      "bp",
-      "blood",
-      "sugar",
-      "diabetes",
-      "infection",
-      "injury",
-      "fracture",
-      "scan",
-      "mri",
-      "xray",
-      "medicine",
-      "department",
-      "specialist",
-      "symptom",
-      "treatment",
-      "health",
-      "emergency",
-      "sick",
-      "ill",
-      "unwell",
-      "disease",
-      "problem"
-    ];
-
-    const isHospitalQuery = hospitalKeywords.some(
-      word => lowerMsg.includes(word)
-    );
-
-    const healthPhrases = [
-      "i am",
-      "i have",
-      "i feel",
-      "suffering",
-      "having",
-      "experiencing"
-    ];
-
-    const looksLikeHealthQuery =
-      healthPhrases.some(p => lowerMsg.includes(p));
-
-    if (
-      detectIntent(lowerMsg) === "unknown" &&
-      !isHospitalQuery &&
-      !looksLikeHealthQuery
-    ) {
-      addMessage(
-        "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
-        "bot"
-      );
-      return;
-    }
-    const lastIntent = chatbotState.userContext.lastIntent || null;
-    const intent = detectIntent(lowerMsg);
-    chatbotState.userContext.lastIntent = intent;
-    chatbotState.userContext.lastMessage = lowerMsg;
-    const shortReplies = [
-      "yes",
-      "yeah",
-      "yep",
-      "ok",
-      "okay",
-      "sure",
-      "no",
-      "not now"
-    ];
-
-    if (
-      chatbotState.userContext.lastDepartment &&
-      ["yes", "yeah", "yep", "ok", "okay", "sure"].includes(lowerMsg)
-    ) {
-
-      addMessage(
-        `I can help you book an appointment with our ${chatbotState.userContext.lastDepartment} department.`,
-        "bot"
-      );
-
-      addMessage(
-        `<button class="option-btn"
-        onclick="window.location.href='${APPOINTMENT_URL}'">
-        Book Appointment
-        </button>`,
-        "bot"
-      );
-
-      return;
-    }
-
-    if (shortReplies.includes(lowerMsg.trim())) {
-      try {
-        const res = await fetch("/api/chatbot", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await res.json();
-        addMessage(data.reply, "bot");
-        return;
-
-      } catch (err) {
-        addMessage("Something went wrong.", "bot");
-        return;
-      }
-    }
-
-    // 🔥 SPECIAL CONTEXT HANDLING
-    if (
-      (lowerMsg.includes("department") || lowerMsg.includes("each")) &&
-      lastIntent === "doctors"
-    ) {
-      const response = generateDoctorsByDepartment();
-      addMessage(response, 'bot');
-      return;
-    }
-
-    function generateDoctorsByDepartment() {
-      let html = '<p><strong>Doctors by Department:</strong></p>';
-
-      for (const dept of Object.values(knowledgeBase.departments)) {
-        html += `
-      <div class="dept-card">
-        <strong>${dept.name}</strong><br>
-        ${dept.doctors.map(d => `• ${d}`).join('<br>')}
-      </div>
-    `;
-      }
-
-      return html;
-    }
-
-    // ✅ Rule-based (fast actions)
-    if (intent !== 'unknown') {
-      const response = generateResponse(intent, lowerMsg);
-      addMessage(response, 'bot');
-    }
-
-    // 🔥 AI fallback
-    else {
-      try {
-        const res = await fetch("/api/chatbot", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await res.json();
-        let reply = data.reply || "Hmm... I didn’t get that. Can you rephrase?";
-
-        if (
-          reply.toLowerCase().includes("general medicine")
-        ) {
-          chatbotState.userContext.lastDepartment = "General Medicine";
-        }
-
-        if (
-          reply.toLowerCase().includes("cardiology")
-        ) {
-          chatbotState.userContext.lastDepartment = "Cardio logy";
-        }
-
-        if (
-          reply.toLowerCase().includes("neurology")
-        ) {
-          chatbotState.userContext.lastDepartment = "Neurology";
-        }
-        // 🔥 ACTION HANDLING
-        // Redirect ONLY if Gemini returns exactly the action
-
-        if (reply.trim() === "ACTION:BOOK_APPOINTMENT") {
-          window.location.href = "/appointment";
-          return;
-        }
-
-        if (reply.trim() === "ACTION:VIEW_BILL") {
-          window.location.href = "/billing";
-          return;
-        }
-
-        addMessage(reply, 'bot');
-
-      } catch (err) {
-        addMessage("Something went wrong.", 'bot');
-      }
-    }
+      processMessageWithNLP(message);
+    }, 800 + Math.random() * 600);
   }
 
   function resetChat() {
-    const container = document.getElementById('chatbotMessages');
-
-    // Keep only welcome message
-    container.innerHTML = `
-        <div class="message-wrapper bot-message">
-            <div class="message-avatar">
-                <i class="icofont-robot"></i>
-            </div>
-            <div class="message-content">
-                <div class="message-bubble animate-in">
-                    <div class="message-text">
-                        <p class="greeting-text">Hello! 👋 I'm your Marvel AI Assistant</p>
-                        <p>How can I assist you today?</p>
-                    </div>
-                </div>
-            </div>
+    document.getElementById('chatbotMessages').innerHTML = `
+    <div class="message-wrapper bot-message">
+      <div class="message-avatar"><i class="icofont-robot"></i></div>
+      <div class="message-content">
+        <div class="message-bubble animate-in">
+          <div class="message-text">
+            <p class="greeting-text">Hello! 👋 I'm your Marvel AI Assistant</p>
+            <p>I can help with appointments, doctors, services, or any health queries. How can I assist you today?</p>
+          </div>
         </div>
-    `;
-
+      </div>
+    </div>`;
     chatbotState.messageHistory = [];
     chatbotState.messageCount = 0;
-
-    localStorage.removeItem('hms_chat_history');
+    chatbotState.userContext = { lastIntent: null, lastDepartment: null, lastMessage: null };
   }
 
-  // Detect Intent using NLP
-  function detectIntent(message) {
-    for (const [intent, pattern] of Object.entries(intentPatterns)) {
-      if (pattern.test(message)) {
-        return intent;
-      }
-    }
-
-    // Check for department keywords
-    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
-      if (dept.keywords.some(keyword => message.includes(keyword))) {
-        return 'department_' + key;
-      }
-    }
-
-    return 'unknown';
-  }
-
-  // Generate Response
-  function generateResponse(intent, message) {
-    let response = '';
-
-    switch (intent) {
-      case 'greeting':
-        response = getRandomResponse(knowledgeBase.responses.greeting);
-        break;
-
-      case 'farewell':
-        response = getRandomResponse(knowledgeBase.responses.farewell);
-        break;
-
-      case 'appointment':
-        response = generateAppointmentResponse();
-        break;
-
-      case 'emergency':
-        response = generateEmergencyResponse();
-        break;
-
-      case 'services':
-        response = generateServicesResponse();
-        break;
-
-      case 'doctors':
-        response = generateDoctorsResponse();
-        break;
-
-      case 'location':
-        response = generateLocationResponse();
-        break;
-
-      case 'hours':
-        response = generateHoursResponse();
-        break;
-
-      case 'cost':
-        response = generateCostResponse();
-        break;
-
-      default:
-        if (intent.startsWith('department_')) {
-
-          const deptKey = intent.replace('department_', '');
-
-          chatbotState.userContext.lastDepartment = deptKey;
-
-          response = generateDepartmentResponse(deptKey);
-        } else {
-          response = getRandomResponse(knowledgeBase.responses.default) +
-            `<br><br>${generateHelpButtons()}`;
-        }
-    }
-
-    return response;
-  }
-
-  // Response Generators
-  function generateAppointmentResponse() {
-    return `
-        <p><strong>Book an Appointment</strong></p>
-        <p>I can help you schedule an appointment. You can:</p>
-        <div class="response-options">
-            <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
-                <i class="icofont-calendar"></i> Book Online Now
-            </button>
-            <button class="option-btn" onclick="callHospital()">
-                <i class="icofont-phone"></i> Call ${CHATBOT_CONFIG.supportPhone}
-            </button>
-        </div>
-        <p><small>💡 Online booking is available 24/7</small></p>
-    `;
-  }
-
-  function generateEmergencyResponse() {
-    return `
-        <div class="alert-message emergency">
-            <p><strong>🚨 EMERGENCY</strong></p>
-            <p><strong>24/7 Emergency Services Available</strong></p>
-            <p>📞 Emergency: <strong>${CHATBOT_CONFIG.supportPhone}</strong></p>
-            <p>🚑 Ambulance: <strong>108</strong></p>
-            <p class="emergency-text">For life-threatening emergencies, call 108 immediately!</p>
-            <button class="option-btn emergency-btn" onclick="callEmergency()">
-                <i class="icofont-phone"></i> Call Emergency Now
-            </button>
-        </div>
-    `;
-  }
-
-  function generateServicesResponse() {
-    let html = '<p><strong>Our Departments & Services:</strong></p>';
-
-    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
-      html += `
-            <div class="dept-card" onclick="quickMessage('tell me about ${dept.name}')">
-                <strong>${dept.name}</strong>
-                <small>${dept.services.join(', ')}</small>
-            </div>
-        `;
-    }
-
-    return html;
-  }
-
-  function generateDoctorsResponse() {
-    let html = '<p><strong>Our Specialist Doctors:</strong></p>';
-
-    for (const dept of Object.values(knowledgeBase.departments)) {
-      dept.doctors.forEach(doctor => {
-        html += `
-                <div class="doctor-card">
-                    <i class="icofont-doctor-alt"></i>
-                    <div>
-                        <strong>${doctor}</strong>
-                        <small>${dept.name}</small>
-                    </div>
-                </div>
-            `;
-      });
-    }
-
-    return html;
-  }
-
-  function handleScrollButtonVisibility() {
-    const scrollBtn = document.querySelector(
-      '.scroll-top, #scrollTop, .back-to-top, .backtop, .scrollUp, .scroll-up'
-    );
-
-    if (!scrollBtn) return;
-
-    if (chatbotState.isOpen) {
-      scrollBtn.style.display = 'none';
-    } else {
-      scrollBtn.style.display = 'block';
-    }
-  }
-
-  function generateLocationResponse() {
-    return `
-        <p><strong>📍 Our Location</strong></p>
-        <p>Marvel Hospitals<br>
-        123 Healthcare Avenue<br>
-        Medical District, City - 500001</p>
-        <button class="option-btn" onclick="window.open('https://maps.google.com', '_blank')">
-            <i class="icofont-location-pin"></i> Get Directions
-        </button>
-    `;
-  }
-
-  function generateHoursResponse() {
-    return `
-        <p><strong>⏰ Operating Hours</strong></p>
-        <p><strong>OPD:</strong> Mon-Sat, 8 AM - 8 PM</p>
-        <p><strong>Emergency:</strong> 24/7</p>
-        <p><strong>Pharmacy:</strong> 24/7</p>
-        <p><strong>Lab:</strong> Mon-Sat, 7 AM - 9 PM</p>
-    `;
-  }
-
-  function generateCostResponse() {
-    return `
-        <p><strong>💰 Consultation Fees</strong></p>
-        <p>Consultation fees vary by specialty:</p>
-        <ul>
-            <li>General Medicine: ₹500</li>
-            <li>Specialist: ₹800-1200</li>
-            <li>Super Specialist: ₹1500-2000</li>
-        </ul>
-        <p><small>💡 We accept all major insurance providers</small></p>
-    `;
-  }
-
-  function generateDepartmentResponse(deptKey) {
-    const dept = knowledgeBase.departments[deptKey];
-
-    return `
-        <p><strong>${dept.name}</strong></p>
-        <p><strong>Services:</strong></p>
-        <ul>
-            ${dept.services.map(s => `<li>${s}</li>`).join('')}
-        </ul>
-        <p><strong>Our Doctors:</strong> ${dept.doctors.join(', ')}</p>
-        <button class="option-btn" onclick="quickMessage('book appointment for ${dept.name}')">
-            <i class="icofont-calendar"></i> Book Appointment
-        </button>
-    `;
-  }
-
-  function generateHelpButtons() {
-    return `
-        <div class="help-buttons">
-            <button class="option-btn" onclick="quickMessage('our services')">
-                <i class="icofont-hospital"></i> Services
-            </button>
-            <button class="option-btn" onclick="quickMessage('book appointment')">
-                <i class="icofont-calendar"></i> Book
-            </button>
-            <button class="option-btn" onclick="contactSupport()">
-                <i class="icofont-phone"></i> Contact
-            </button>
-        </div>
-    `;
-  }
-
-  // Add Message to Chat
   function addMessage(text, sender) {
-    const messagesContainer = document.getElementById('chatbotMessages');
-    const time = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const messageId = generateUUID();
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message-wrapper ${sender}-message`;
-    messageDiv.dataset.messageId = messageId;
-
-    const avatarIcon = sender === 'bot' ? 'icofont-robot' : '';
-
-    messageDiv.innerHTML = `
-        <div class="message-avatar">
-            ${sender === 'bot' ? `<i class="${avatarIcon}"></i>` : ''}
-        </div>
-        <div class="message-content">
-            <div class="message-bubble animate-in">
-                <div class="message-text">
-                    ${sender === 'user' ? escapeHTML(text) : text}
-                </div>
-            </div>
-            <div class="message-meta">
-                <span class="message-time">${time}</span>
-            </div>
-        </div>
-    `;
-
-    messagesContainer.appendChild(messageDiv);
-    scrollToBottom();
-
-    chatbotState.messageCount++;
-    chatbotState.messageHistory.push({ sender, text, time, id: messageId });
-  }
-
-  // Quick Message
-  function quickMessage(message) {
-    document.getElementById('chatInput').value = message;
-    sendMessage({ preventDefault: () => { } });
-  }
-
-  // Send Suggestion
-  function sendSuggestion(text) {
-    quickMessage(text);
-  }
-
-  // Utility Functions
-  function showTypingIndicator() {
-    document.getElementById('typingIndicator').style.display = 'flex';
-    scrollToBottom();
-  }
-
-  function hideTypingIndicator() {
-    document.getElementById('typingIndicator').style.display = 'none';
-  }
-
-  function scrollToBottom() {
     const container = document.getElementById('chatbotMessages');
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function updateCharCount() {
-    const input = document.getElementById('chatInput');
-    const counter = document.getElementById('charCount');
-    if (input && counter) {
-      counter.textContent = input.value.length;
-    }
-  }
-
-  function hideSuggestions() {
-    document.getElementById('suggestedResponses').style.display = 'none';
-  }
-
-  function animateNotificationBadge() {
-    const badge = document.getElementById('notificationBadge');
-    badge.classList.remove('hidden');
-    badge.classList.add('bounce');
-  }
-
-  function markMessagesAsSeen() {
-    document.getElementById('notificationBadge').classList.add('hidden');
-  }
-
-  function escapeHTML(text) {
+    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    div.className = `message-wrapper ${sender}-message`;
+    div.innerHTML = `
+    <div class="message-avatar">${sender === 'bot' ? '<i class="icofont-robot"></i>' : ''}</div>
+    <div class="message-content">
+      <div class="message-bubble animate-in">
+        <div class="message-text">${sender === 'user' ? escapeHTML(text) : text}</div>
+      </div>
+      <div class="message-meta"><span class="message-time">${time}</span></div>
+    </div>`;
+    container.appendChild(div);
+    scrollToBottom();
+    chatbotState.messageCount++;
+    chatbotState.messageHistory.push({ sender, text, time });
   }
 
-  function getRandomResponse(responses) {
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-  function updateContext(message, intent) {
-    chatbotState.userContext.lastIntent = intent;
-    chatbotState.userContext.lastMessage = message;
-    chatbotState.userContext.timestamp = new Date().toISOString();
-  }
-
-  // Voice Input
+  function quickMessage(msg) { document.getElementById('chatInput').value = msg; sendMessage({ preventDefault: () => { } }); }
+  function sendSuggestion(text) { quickMessage(text); }
+  function showTypingIndicator() { document.getElementById('typingIndicator').style.display = 'flex'; scrollToBottom(); }
+  function hideTypingIndicator() { document.getElementById('typingIndicator').style.display = 'none'; }
+  function hideSuggestions() { document.getElementById('suggestedResponses').style.display = 'none'; }
+  function scrollToBottom() { const c = document.getElementById('chatbotMessages'); c.scrollTop = c.scrollHeight; }
+  function updateCharCount() { const i = document.getElementById('chatInput'); document.getElementById('charCount').textContent = i.value.length; }
+  function animateNotificationBadge() { document.getElementById('notificationBadge').classList.remove('hidden'); }
+  function markMessagesAsSeen() { document.getElementById('notificationBadge').classList.add('hidden'); }
+  function escapeHTML(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+  function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16) }); }
+  function callHospital() { window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`; }
+  function callEmergency() { if (confirm(`Call Emergency: ${CHATBOT_CONFIG.supportPhone}?`)) callHospital(); }
   function startVoiceInput() {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert('Voice input not supported in this browser');
-      return;
-    }
-
-    const recognition = new webkitSpeechRecognition();
-    const voiceBtn = document.getElementById('voiceBtn');
-
-    recognition.lang = 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = function () {
-      voiceBtn.classList.add('recording');
-      voiceBtn.innerHTML = '<i class="icofont-stop"></i>';
-    };
-
-    recognition.onresult = function (event) {
-      const transcript = event.results[0][0].transcript;
-      document.getElementById('chatInput').value = transcript;
-    };
-
-    recognition.onend = function () {
-      voiceBtn.classList.remove('recording');
-      voiceBtn.innerHTML = '<i class="icofont-mic"></i>';
-    };
-
-    recognition.onerror = function () {
-      voiceBtn.classList.remove('recording');
-      voiceBtn.innerHTML = '<i class="icofont-mic"></i>';
-    };
-
-    recognition.start();
+    if (!('webkitSpeechRecognition' in window)) { alert('Voice input not supported'); return; }
+    const r = new webkitSpeechRecognition();
+    const btn = document.getElementById('voiceBtn');
+    r.lang = 'en-US'; r.continuous = false; r.interimResults = false;
+    r.onstart = () => { btn.classList.add('recording'); btn.innerHTML = '<i class="icofont-stop"></i>'; };
+    r.onresult = e => { document.getElementById('chatInput').value = e.results[0][0].transcript; };
+    r.onend = r.onerror = () => { btn.classList.remove('recording'); btn.innerHTML = '<i class="icofont-mic"></i>'; };
+    r.start();
   }
-
-  // Contact Functions
-  function callHospital() {
-    window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`;
-  }
-
-  function callEmergency() {
-    if (confirm(`Call Emergency Helpline ${CHATBOT_CONFIG.supportPhone}?`)) {
-      window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`;
-    }
-  }
-
+  function toggleEmojiPicker() { alert('Emoji picker coming soon!'); }
   function contactSupport() {
-    const response = `
-        <p><strong>Contact Support:</strong></p>
-        <p>📞 Phone: ${CHATBOT_CONFIG.supportPhone}</p>
-        <p>📧 Email: ${CHATBOT_CONFIG.supportEmail}</p>
-        <p>💬 WhatsApp: ${CHATBOT_CONFIG.supportPhone}</p>
-        <button class="option-btn" onclick="callHospital()">
-            <i class="icofont-phone"></i> Call Now
-        </button>
-    `;
-    addMessage(response, 'bot');
+    addMessage(`<p><strong>Contact Support</strong></p><p>📞 ${CHATBOT_CONFIG.supportPhone}</p><p>📧 ${CHATBOT_CONFIG.supportEmail}</p><button class="option-btn" onclick="callHospital()"><i class="icofont-phone"></i> Call Now</button>`, 'bot');
   }
-
-  // Chat Persistence
-  function saveChatHistory() {
-    if (CHATBOT_CONFIG.enablePersistence) {
-      localStorage.setItem('hms_chat_history', JSON.stringify(chatbotState.messageHistory));
-    }
-  }
-
-  function loadChatHistory() {
-    if (CHATBOT_CONFIG.enablePersistence) {
-      const saved = localStorage.getItem('hms_chat_history');
-      if (saved) {
-        chatbotState.messageHistory = JSON.parse(saved);
-
-        chatbotState.messageHistory.forEach(msg => {
-          addMessage(msg.text, msg.sender);
-        });
-      }
-    }
-  }
-
-  function toggleEmojiPicker() {
-    // Placeholder for emoji picker functionality
-    alert('Emoji picker coming soon!');
-  }
-
-  // Export for debugging
-  window.chatbotDebug = {
-    state: chatbotState,
-    config: CHATBOT_CONFIG,
-    knowledge: knowledgeBase
-  };
-  document.addEventListener('DOMContentLoaded', function () {
-    handleScrollButtonVisibility();
-    localStorage.removeItem('hms_chat_history');
-  });
-
 </script>
+
 {% endblock %}
