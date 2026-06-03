@@ -1207,9 +1207,16 @@
     isMinimized: false,
     messageCount: 0,
     conversationId: null,
-    userContext: {},
+
+    userContext: {
+      lastIntent: null,
+      lastDepartment: null,
+      lastMessage: null
+    },
+
     messageHistory: []
   };
+
 
   // NLP Intent Patterns
   const intentPatterns = {
@@ -1389,79 +1396,130 @@
   async function processMessageWithNLP(message) {
 
     const lowerMsg = message.toLowerCase();
-   const hospitalKeywords = [
-  "hospital",
-  "doctor",
-  "appointment",
-  "bill",
-  "billing",
-  "report",
-  "fever",
-  "pain",
-  "cough",
-  "cold",
-  "headache",
-  "migraine",
-  "vomiting",
-  "dizziness",
-  "stomach",
-  "chest",
-  "heart",
-  "bp",
-  "blood",
-  "sugar",
-  "diabetes",
-  "infection",
-  "injury",
-  "fracture",
-  "scan",
-  "mri",
-  "xray",
-  "medicine",
-  "department",
-  "specialist",
-  "symptom",
-  "treatment",
-  "health",
-  "emergency",
-  "sick",
-  "ill",
-  "unwell",
-  "disease",
-  "problem"
-];
+    const hospitalKeywords = [
+      "hospital",
+      "doctor",
+      "appointment",
+      "bill",
+      "billing",
+      "report",
+      "fever",
+      "pain",
+      "cough",
+      "cold",
+      "headache",
+      "migraine",
+      "vomiting",
+      "dizziness",
+      "stomach",
+      "chest",
+      "heart",
+      "bp",
+      "blood",
+      "sugar",
+      "diabetes",
+      "infection",
+      "injury",
+      "fracture",
+      "scan",
+      "mri",
+      "xray",
+      "medicine",
+      "department",
+      "specialist",
+      "symptom",
+      "treatment",
+      "health",
+      "emergency",
+      "sick",
+      "ill",
+      "unwell",
+      "disease",
+      "problem"
+    ];
 
-const isHospitalQuery = hospitalKeywords.some(
-  word => lowerMsg.includes(word)
-);
+    const isHospitalQuery = hospitalKeywords.some(
+      word => lowerMsg.includes(word)
+    );
 
-const healthPhrases = [
-  "i am",
-  "i have",
-  "i feel",
-  "suffering",
-  "having",
-  "experiencing"
-];
+    const healthPhrases = [
+      "i am",
+      "i have",
+      "i feel",
+      "suffering",
+      "having",
+      "experiencing"
+    ];
 
-const looksLikeHealthQuery =
-  healthPhrases.some(p => lowerMsg.includes(p));  healthPhrases.some(p => lowerMsg.includes(p));
+    const looksLikeHealthQuery =
+      healthPhrases.some(p => lowerMsg.includes(p));
 
-if (
-  detectIntent(lowerMsg) === "unknown" &&
-  !isHospitalQuery &&
-  !looksLikeHealthQuery
-) {
-  addMessage(
-    "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
-    "bot"
-  );
-  return;
-}
+    if (
+      detectIntent(lowerMsg) === "unknown" &&
+      !isHospitalQuery &&
+      !looksLikeHealthQuery
+    ) {
+      addMessage(
+        "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
+        "bot"
+      );
+      return;
+    }
     const lastIntent = chatbotState.userContext.lastIntent || null;
     const intent = detectIntent(lowerMsg);
     chatbotState.userContext.lastIntent = intent;
     chatbotState.userContext.lastMessage = lowerMsg;
+    const shortReplies = [
+      "yes",
+      "yeah",
+      "yep",
+      "ok",
+      "okay",
+      "sure",
+      "no",
+      "not now"
+    ];
+
+    if (
+      chatbotState.userContext.lastDepartment &&
+      ["yes", "yeah", "yep", "ok", "okay", "sure"].includes(lowerMsg)
+    ) {
+
+      addMessage(
+        `I can help you book an appointment with our ${chatbotState.userContext.lastDepartment} department.`,
+        "bot"
+      );
+
+      addMessage(
+        `<button class="option-btn"
+        onclick="window.location.href='${APPOINTMENT_URL}'">
+        Book Appointment
+        </button>`,
+        "bot"
+      );
+
+      return;
+    }
+
+    if (shortReplies.includes(lowerMsg.trim())) {
+      try {
+        const res = await fetch("/api/chatbot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        addMessage(data.reply, "bot");
+        return;
+
+      } catch (err) {
+        addMessage("Something went wrong.", "bot");
+        return;
+      }
+    }
 
     // 🔥 SPECIAL CONTEXT HANDLING
     if (
@@ -1508,6 +1566,23 @@ if (
         const data = await res.json();
         let reply = data.reply || "Hmm... I didn’t get that. Can you rephrase?";
 
+        if (
+          reply.toLowerCase().includes("general medicine")
+        ) {
+          chatbotState.userContext.lastDepartment = "General Medicine";
+        }
+
+        if (
+          reply.toLowerCase().includes("cardiology")
+        ) {
+          chatbotState.userContext.lastDepartment = "Cardio logy";
+        }
+
+        if (
+          reply.toLowerCase().includes("neurology")
+        ) {
+          chatbotState.userContext.lastDepartment = "Neurology";
+        }
         // 🔥 ACTION HANDLING
         // Redirect ONLY if Gemini returns exactly the action
 
@@ -1616,7 +1691,11 @@ if (
 
       default:
         if (intent.startsWith('department_')) {
+
           const deptKey = intent.replace('department_', '');
+
+          chatbotState.userContext.lastDepartment = deptKey;
+
           response = generateDepartmentResponse(deptKey);
         } else {
           response = getRandomResponse(knowledgeBase.responses.default) +

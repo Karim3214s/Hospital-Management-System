@@ -69,7 +69,7 @@ Only answer hospital-related questions.
         chat_history.append(f"User: {user_message}")
 
         # Keep only recent messages
-        chat_history = chat_history[-6:]
+        chat_history = chat_history[-10:]
 
         # Build prompt
         chat_text = "\n".join(chat_history)
