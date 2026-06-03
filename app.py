@@ -25,7 +25,7 @@ from routes.auditor_routes import auditor_bp
 from routes.billing_routes import billing_bp
 from routes.public_routes import public_bp
 
-# from routes.chatbot_routes import chatbot_bp
+from routes.chatbot_routes import chatbot_bp
 
 
 # ─────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ def create_app():
     app.register_blueprint(public_bp)
 
     # ✅ CHATBOT ROUTE
-    # app.register_blueprint(chatbot_bp)
+    app.register_blueprint(chatbot_bp)
 
     # ─────────────────────────────────────────────────────
     # TEMPLATE SESSION ACCESS
