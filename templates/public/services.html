@@ -1183,417 +1183,472 @@
 <!-- Chatbot Styles -->
 
 <script>
-  const APPOINTMENT_URL = "{{ url_for('public.appointment') }}";
+  /* ═══════════════════════════════════════════════════════════════════════
+   MARVEL HOSPITAL CHATBOT
+   Routing: JS handles simple intents → API only for complex reasoning
+   ═══════════════════════════════════════════════════════════════════════ */
 
-  /* ═══════════════════════════════════════════════════════
-     CONFIG & STATE
-  ═══════════════════════════════════════════════════════ */
-  const CHATBOT_CONFIG = {
-    supportPhone: '+91-7569486938',
-    supportEmail: 'support@marvelhospitals.com',
-    enableVoice: true,
-    maxMessageLength: 500
-  };
+const APPOINTMENT_URL = "{{ url_for('public.appointment') }}";
+const PATIENT_LOGIN_URL = "/login";
+const SUPPORT_PHONE = "+91-7569486938";
+const SUPPORT_EMAIL = "support@marvelhospitals.com";
 
-  const chatbotState = {
-    isOpen: false,
-    isMinimized: false,
-    messageCount: 0,
-    conversationId: null,
-    userContext: { lastIntent: null, lastDepartment: null, lastMessage: null },
-    messageHistory: []
-  };
+/* ───────────────────────────────────────────────────────
+   STATE
+─────────────────────────────────────────────────────── */
+const state = {
+  isOpen: false,
+  isMinimized: false,
+  lastDepartment: null,   // set after dept suggestion, used for confirm flow
+  lastIntent: null
+};
 
-  /* ═══════════════════════════════════════════════════════
-     INTENT PATTERNS  (JS handles these — zero API calls)
-  ═══════════════════════════════════════════════════════ */
-  const intentPatterns = {
-    greeting: /^(hi|hello|hey|good\s?(morning|evening|afternoon)|greetings)/i,
-    farewell: /^(bye|goodbye|see you|thanks?|thank you|that'?s? all)/i,
-    appointment: /(book|schedule|appointment|consultation|visit|see\s+a?\s*doctor)/i,
-    emergency: /(emergency|urgent|critical|ambulance|108\b)/i,
-    services: /\b(service|department|facility|treatment|special[it]y)\b/i,
-    doctors: /\b(doctor|physician|specialist|surgeon|consultant)\b/i,
-    location: /\b(where|location|address|direction|map|reach|how to get)\b/i,
-    hours: /\b(hour|time|open|close|timing|schedule|when\s+are)\b/i,
-    cost: /\b(cost|price|fee|charge|bill|payment|insurance|how much)\b/i,
-    reports: /\b(report|result|test|lab|x.?ray|scan|mri)\b/i,
-    // ✅ NEW — catches symptom sentences before they fall to API
-    symptoms: /\b(fever|cough|cold|headache|migraine|vomiting|nausea|dizziness|stomach|chest pain|back pain|fatigue|tired|weakness|breathless|shortness of breath|sore throat|rash|swelling|bleeding|injury|fracture|pain|ache|ill|sick|unwell|not feeling|feeling)\b/i,
-  };
+/* ───────────────────────────────────────────────────────
+   KNOWLEDGE BASE  (JS-only — no API needed)
+─────────────────────────────────────────────────────── */
+const DEPARTMENTS = {
+  cardiology:  { name: "Cardiology",               keywords: ["heart","cardiac","chest pain","palpitation","bp","blood pressure","cholesterol"], services: ["Angioplasty","Pacemaker","ECG","Echo"], doctors: ["Dr. Rajesh Kumar","Dr. Priya Sharma"] },
+  neurology:   { name: "Neurology & Neurosurgery", keywords: ["brain","neuro","stroke","seizure","epilepsy","numbness","paralysis","memory"], services: ["Brain Surgery","Spine Surgery","Stroke Care"], doctors: ["Dr. Amit Patel","Dr. Sunita Reddy"] },
+  orthopedics: { name: "Orthopaedics",             keywords: ["bone","joint","fracture","knee","hip","spine","ligament","sprain","arthritis"], services: ["Joint Replacement","Sports Injury","Fracture Care"], doctors: ["Dr. Vikram Singh","Dr. Kavita Mehta"] },
+  gynecology:  { name: "Gynaecology & Obstetrics", keywords: ["pregnancy","maternity","delivery","gynec","obstetric","fertility","ivf","periods","pcos"], services: ["Prenatal Care","High-Risk Pregnancy","Fertility / IVF"], doctors: ["Dr. Sneha Desai","Dr. Ritu Agarwal"] },
+  pediatrics:  { name: "Pediatrics",               keywords: ["child","children","kids","baby","infant","newborn","vaccination","toddler"], services: ["Child OPD","NICU","Vaccination"], doctors: ["Dr. Ramesh Yadav","Dr. Anita Joshi"] },
+  general:     { name: "General Medicine",         keywords: ["fever","cough","cold","flu","viral","infection","fatigue","weakness","vomit","nausea","diarrhoea","diarrhea","sore throat","rash","allergy","diabetes","sugar","thyroid"], services: ["OPD Consultation","Diabetes Care","Preventive Check-ups"], doctors: ["Dr. Suresh Babu","Dr. Meena Reddy"] },
+  dermatology: { name: "Dermatology",              keywords: ["skin","acne","eczema","psoriasis","itching","hives","hair loss","pigmentation","wart"], services: ["Skin OPD","Laser Treatment","Allergy Testing"], doctors: ["Dr. Pooja Verma","Dr. Arjun Nair"] },
+  ophthalmology: { name: "Ophthalmology",          keywords: ["eye","vision","lasik","cataract","retina","glaucoma","spectacles","blurred"], services: ["LASIK","Cataract Surgery","Retina Care"], doctors: ["Dr. Nisha Kapoor","Dr. Rajiv Menon"] },
+  ent:         { name: "ENT",                      keywords: ["ear","nose","throat","hearing","tonsil","sinusitis","vertigo","snoring"], services: ["Tonsillectomy","Sinus Surgery","Hearing Tests"], doctors: ["Dr. Kiran Das","Dr. Lalitha Rao"] }
+};
 
-  /* ═══════════════════════════════════════════════════════
-     DEPARTMENT KEYWORDS  (JS handles these too)
-  ═══════════════════════════════════════════════════════ */
-  const knowledgeBase = {
-    departments: {
-      cardiology: { name: 'Cardiology', keywords: ['heart', 'cardiac', 'cardio', 'chest pain', 'bp', 'blood pressure', 'palpitation'], services: ['Angioplasty', 'Pacemaker', 'ECG', 'Echo'], doctors: ['Dr. Rajesh Kumar', 'Dr. Priya Sharma'] },
-      neurology: { name: 'Neurology & Neurosurgery', keywords: ['brain', 'neuro', 'headache', 'migraine', 'stroke', 'seizure', 'epilepsy', 'numbness'], services: ['Brain Surgery', 'Spine Surgery', 'Stroke Care'], doctors: ['Dr. Amit Patel', 'Dr. Sunita Reddy'] },
-      orthopedics: { name: 'Orthopaedics', keywords: ['bone', 'joint', 'fracture', 'knee', 'hip', 'back pain', 'spine', 'sprain', 'ligament'], services: ['Joint Replacement', 'Sports Injury', 'Fracture Care'], doctors: ['Dr. Vikram Singh', 'Dr. Kavita Mehta'] },
-      gynecology: { name: 'Gynaecology & Obstetrics', keywords: ['pregnancy', 'women', 'gynec', 'obstetrics', 'delivery', 'maternity', 'ivf', 'fertility'], services: ['Prenatal Care', 'High-Risk Pregnancy', 'Fertility'], doctors: ['Dr. Sneha Desai', 'Dr. Ritu Agarwal'] },
-      pediatrics: { name: 'Pediatrics', keywords: ['child', 'children', 'kids', 'baby', 'infant', 'vaccination', 'newborn'], services: ['Child Care', 'NICU', 'Vaccination'], doctors: ['Dr. Ramesh Yadav', 'Dr. Anita Joshi'] },
-      general: { name: 'General Medicine', keywords: ['fever', 'cough', 'cold', 'flu', 'viral', 'infection', 'fatigue', 'weakness', 'general', 'medicine', 'vomit', 'nausea', 'diarrhoea', 'diarrhea', 'dizziness', 'sore throat', 'rash', 'allergy'], services: ['OPD Consultation', 'Diabetes Care', 'Preventive Check-ups'], doctors: ['Dr. Suresh Babu', 'Dr. Meena Reddy'] }
-    },
-    responses: {
-      greeting: ["Hello! 👋 Welcome to Marvel Hospitals. How can I assist you today?", "Hi there! I'm your Marvel assistant. What can I do for you?"],
-      farewell: ["Thank you for chatting! Stay healthy! 🌟", "Goodbye! Feel free to reach out anytime. Have a great day!"],
-      default: ["I'm not quite sure about that. Could you rephrase?", "Let me know how I can help with your healthcare needs."]
-    }
-  };
+/* ───────────────────────────────────────────────────────
+   INTENT PATTERNS  (pure JS — zero API cost)
+   Each pattern maps to a handler function below.
+─────────────────────────────────────────────────────── */
+const INTENTS = [
+  { name: "greeting",    pattern: /^(hi+|hello+|hey|good\s?(morning|evening|afternoon|night)|greetings|namaste)/i },
+  { name: "farewell",    pattern: /^(bye|goodbye|see\s?you|thanks?|thank\s?you|that'?s?\s?all|ok\s?bye|tc|take\s?care)/i },
+  { name: "appointment", pattern: /\b(book|schedule|fix|get)\b.{0,20}\b(appointment|consultation|visit|slot)\b|\bsee\s+a?\s*(doctor|specialist)\b/i },
+  { name: "emergency",   pattern: /\b(emergency|urgent|critical|ambulance|108\b|icu|life\s?threat)/i },
+  { name: "services",    pattern: /\b(what\s+)?(service|department|facility|treatment|special[it]y|division)s?\b/i },
+  { name: "doctors",     pattern: /\b(list\s+of\s+)?(doctor|physician|specialist|surgeon|consultant)s?\b/i },
+  { name: "location",    pattern: /\b(where|location|address|directions?|map|how\s+to\s+(reach|get|find))\b/i },
+  { name: "hours",       pattern: /\b(timing|hours?|open|close|opd\s+time|when\s+are\s+you)\b/i },
+  { name: "cost",        pattern: /\b(cost|price|fee|charge|bill|payment|insurance|how\s+much|charges?)\b/i },
+  { name: "reports",     pattern: /\b(report|result|lab|test|x.?ray|scan|mri|blood\s+test)\b/i },
+  { name: "profile",     pattern: /\b(my\s+(details?|profile|records?|history|appointments?|bills?|account)|check\s+(my|me|details?|profile)|patient\s+(portal|login)|view\s+(my|profile))\b/i },
+  { name: "pharmacy",    pattern: /\b(medicine|pharmacy|drug|prescription|medication)\b/i }
+];
 
-  /* ═══════════════════════════════════════════════════════
-     INTENT DETECTOR
-  ═══════════════════════════════════════════════════════ */
-  function detectIntent(msg) {
-    // Check named intents first
-    for (const [intent, pattern] of Object.entries(intentPatterns)) {
-      if (pattern.test(msg)) return intent;
-    }
-    // Check department keywords
-    for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
-      if (dept.keywords.some(kw => msg.includes(kw))) return 'department_' + key;
-    }
-    return 'unknown';
+/* ───────────────────────────────────────────────────────
+   COMPLEXITY DETECTOR
+   Returns true → skip JS, send to API for reasoning
+─────────────────────────────────────────────────────── */
+const SYMPTOM_WORDS = [
+  "fever","cough","cold","headache","migraine","nausea","vomiting","dizziness",
+  "rash","swelling","fatigue","weakness","breathless","bleeding","pain","ache",
+  "chills","sweating","itching","burning","numbness","tingling","cramps",
+  "sore","throat","chest","stomach","back","joint","skin","eye","ear"
+];
+
+function needsAPIReasoning(msg) {
+  const symptomCount = SYMPTOM_WORDS.filter(s => msg.includes(s)).length;
+
+  // 2+ symptoms together → needs reasoning
+  if (symptomCount >= 2) return true;
+
+  // Diagnostic / "what is it" questions
+  if (/(what\s+could|what\s+is\s+it|could\s+it\s+be|is\s+it\s+serious|is\s+this\s+normal|should\s+i\s+worry|what\s+does\s+it\s+mean|could\s+this\s+be)/i.test(msg)) return true;
+
+  // Follow-up contextual connectors
+  if (/\b(also|along\s+with|combined\s+with|together\s+with|at\s+the\s+same\s+time|as\s+well\s+as|plus|and\s+also)\b/i.test(msg)) return true;
+
+  // Duration / pattern (needs medical reasoning)
+  if (/\b(since|for\s+the\s+past|last\s+\d|recurring|on\s+and\s+off|every\s+day|\d+\s*(days?|weeks?|months?))\b/i.test(msg)) return true;
+
+  // "Which doctor / department for X" — needs reasoning
+  if (/(which\s+(doctor|department|specialist)|who\s+should\s+i\s+see|what\s+type\s+of\s+doctor)/i.test(msg)) return true;
+
+  // Procedure / treatment questions
+  if (/(recovery\s+time|how\s+long|is\s+it\s+painful|do\s+i\s+need\s+to\s+fast|what\s+is\s+the\s+procedure|how\s+does\s+it\s+work)/i.test(msg)) return true;
+
+  return false;
+}
+
+/* ───────────────────────────────────────────────────────
+   HOSPITAL RELEVANCE GUARD
+   Last line of defence before sending to API
+─────────────────────────────────────────────────────── */
+const HOSPITAL_KEYWORDS = [
+  "hospital","doctor","appointment","bill","billing","report","medicine","pharmacy",
+  "fever","pain","cough","cold","headache","migraine","vomiting","dizziness",
+  "stomach","chest","heart","bp","blood","sugar","diabetes","infection","injury",
+  "fracture","scan","mri","xray","department","specialist","symptom","treatment",
+  "health","emergency","sick","ill","unwell","disease","rash","fatigue","nausea",
+  "allergy","vaccine","vaccination","surgery","operation","discharge","admit",
+  "insurance","cashless","ward","icu","test","lab","result","profile","details",
+  "records","account","login","portal","pregnancy","baby","child","eye","ear","skin"
+];
+const HEALTH_PHRASES = [
+  "i am","i have","i feel","i'm","feeling","suffering","having","experiencing",
+  "how can i","how do i","where can i","my child","my father","my mother","my wife","my husband"
+];
+
+function isHospitalRelated(msg) {
+  return HOSPITAL_KEYWORDS.some(kw => msg.includes(kw))
+      || HEALTH_PHRASES.some(p => msg.includes(p));
+}
+
+/* ───────────────────────────────────────────────────────
+   DEPARTMENT DETECTOR  (for single-symptom JS handling)
+─────────────────────────────────────────────────────── */
+function detectDepartment(msg) {
+  for (const [key, dept] of Object.entries(DEPARTMENTS)) {
+    if (dept.keywords.some(kw => msg.includes(kw))) return key;
   }
+  return "general";
+}
 
-  /* ═══════════════════════════════════════════════════════
-     SYMPTOM → DEPARTMENT MAPPER
-     Maps symptom keywords to the most relevant department
-  ═══════════════════════════════════════════════════════ */
-  function mapSymptomToDepartment(msg) {
-    const symptomMap = [
-      { keywords: ['chest pain', 'palpitation', 'bp', 'blood pressure', 'heart'], dept: 'cardiology' },
-      { keywords: ['headache', 'migraine', 'stroke', 'seizure', 'brain', 'numbness'], dept: 'neurology' },
-      { keywords: ['knee', 'hip', 'fracture', 'back pain', 'bone', 'joint', 'sprain'], dept: 'orthopedics' },
-      { keywords: ['pregnancy', 'delivery', 'maternity', 'fertility'], dept: 'gynecology' },
-      { keywords: ['child', 'baby', 'infant', 'vaccination'], dept: 'pediatrics' },
-      { keywords: ['fever', 'cough', 'cold', 'vomit', 'nausea', 'dizziness', 'sore throat', 'rash', 'fatigue', 'tired', 'weakness', 'ill', 'sick', 'unwell', 'pain', 'ache'], dept: 'general' },
-    ];
-    for (const { keywords, dept } of symptomMap) {
-      if (keywords.some(kw => msg.includes(kw))) return dept;
-    }
-    return 'general'; // safe default
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     RESPONSE GENERATORS  (pure JS, no API)
-  ═══════════════════════════════════════════════════════ */
-  function generateSymptomResponse(msg) {
-    const deptKey = mapSymptomToDepartment(msg);
-    const dept = knowledgeBase.departments[deptKey];
-    chatbotState.userContext.lastDepartment = dept.name;
-
-    return `
-    <p>I'm sorry to hear that. Based on your symptoms, I'd recommend visiting our <strong>${dept.name}</strong> department.</p>
-    <p><strong>Our specialists:</strong> ${dept.doctors.join(', ')}</p>
-    <p><strong>Services:</strong> ${dept.services.join(' · ')}</p>
+/* ───────────────────────────────────────────────────────
+   RESPONSE BUILDERS  (JS-only responses)
+─────────────────────────────────────────────────────── */
+function buildDeptCard(deptKey) {
+  const dept = DEPARTMENTS[deptKey];
+  state.lastDepartment = dept.name;
+  return `
+    <p>I'd recommend visiting our <strong>${dept.name}</strong> department.</p>
+    <p><strong>Doctors:</strong> ${dept.doctors.join(" · ")}</p>
+    <p><strong>Services:</strong> ${dept.services.join(" · ")}</p>
     <p>Would you like to book an appointment?</p>
     <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
       <i class="icofont-calendar"></i> Book Appointment
-    </button>
-  `;
-  }
+    </button>`;
+}
 
-  function generateAppointmentResponse() {
+const RESPONSES = {
+  greeting() {
+    return `Hello! 👋 How can I help you today? You can ask me about our doctors, departments, appointments, or any health concern.`;
+  },
+  farewell() {
+    return `Thank you for reaching out. Stay healthy! 🌟 Feel free to come back anytime.`;
+  },
+  appointment() {
     return `
-    <p><strong>Book an Appointment</strong></p>
-    <p>Choose how you'd like to proceed:</p>
-    <div class="response-options">
-      <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
-        <i class="icofont-calendar"></i> Book Online Now
-      </button>
-      <button class="option-btn" onclick="callHospital()">
-        <i class="icofont-phone"></i> Call ${CHATBOT_CONFIG.supportPhone}
-      </button>
-    </div>
-    <p><small>💡 Online booking is available 24/7</small></p>
-  `;
-  }
-
-  function generateEmergencyResponse() {
+      <p><strong>Book an Appointment</strong></p>
+      <p>You can book online 24/7 or call us directly:</p>
+      <div class="response-options">
+        <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+          <i class="icofont-calendar"></i> Book Online
+        </button>
+        <button class="option-btn" onclick="window.location.href='tel:${SUPPORT_PHONE}'">
+          <i class="icofont-phone"></i> Call Us
+        </button>
+      </div>`;
+  },
+  emergency() {
     return `
-    <div class="alert-message emergency">
-      <p><strong>🚨 EMERGENCY</strong></p>
-      <p><strong>24/7 Emergency Services Available</strong></p>
-      <p>📞 Helpline: <strong>${CHATBOT_CONFIG.supportPhone}</strong></p>
-      <p>🚑 Ambulance: <strong>108</strong></p>
-      <button class="option-btn emergency-btn" onclick="callEmergency()">
-        <i class="icofont-phone"></i> Call Emergency Now
-      </button>
-    </div>
-  `;
-  }
-
-  function generateServicesResponse() {
-    let html = '<p><strong>Our Departments:</strong></p>';
-    for (const dept of Object.values(knowledgeBase.departments)) {
-      html += `<div class="dept-card"><strong>${dept.name}</strong><small>${dept.services.join(', ')}</small></div>`;
+      <div style="background:#fff5f5;border-left:3px solid #dc3545;padding:12px;border-radius:8px;">
+        <p><strong>🚨 Emergency</strong></p>
+        <p>📞 Helpline: <strong>${SUPPORT_PHONE}</strong></p>
+        <p>🚑 Ambulance: <strong>108</strong></p>
+        <p style="font-size:12px;color:#666;">For life-threatening emergencies, call 108 immediately.</p>
+        <button class="option-btn" style="background:#dc3545;color:white;border-color:#dc3545;"
+          onclick="window.location.href='tel:108'">
+          <i class="icofont-phone"></i> Call 108 Now
+        </button>
+      </div>`;
+  },
+  services() {
+    let html = `<p><strong>Our Departments:</strong></p>`;
+    for (const dept of Object.values(DEPARTMENTS)) {
+      html += `<div class="dept-card"><strong>${dept.name}</strong><small>${dept.services.join(", ")}</small></div>`;
     }
     return html;
-  }
-
-  function generateDoctorsResponse() {
-    let html = '<p><strong>Our Specialist Doctors:</strong></p>';
-    for (const dept of Object.values(knowledgeBase.departments)) {
+  },
+  doctors() {
+    let html = `<p><strong>Our Specialists:</strong></p>`;
+    for (const dept of Object.values(DEPARTMENTS)) {
       dept.doctors.forEach(d => {
         html += `<div class="doctor-card"><i class="icofont-doctor-alt"></i><div><strong>${d}</strong><small>${dept.name}</small></div></div>`;
       });
     }
     return html;
-  }
-
-  function generateLocationResponse() {
+  },
+  location() {
     return `
-    <p><strong>📍 Our Location</strong></p>
-    <p>Marvel Hospitals<br>123 Healthcare Avenue<br>Medical District, City — 500001</p>
-    <button class="option-btn" onclick="window.open('https://maps.google.com','_blank')">
-      <i class="icofont-location-pin"></i> Get Directions
-    </button>
-  `;
-  }
-
-  function generateHoursResponse() {
+      <p><strong>📍 Marvel Hospitals</strong></p>
+      <p>123 Healthcare Avenue, Medical District, City — 500001</p>
+      <button class="option-btn" onclick="window.open('https://maps.google.com','_blank')">
+        <i class="icofont-location-pin"></i> Get Directions
+      </button>`;
+  },
+  hours() {
     return `
-    <p><strong>⏰ Operating Hours</strong></p>
-    <p><strong>OPD:</strong> Mon–Sat, 8 AM – 8 PM</p>
-    <p><strong>Emergency:</strong> 24/7</p>
-    <p><strong>Pharmacy:</strong> 24/7</p>
-    <p><strong>Lab:</strong> Mon–Sat, 7 AM – 9 PM</p>
-  `;
-  }
-
-  function generateCostResponse() {
+      <p><strong>⏰ Operating Hours</strong></p>
+      <p><strong>OPD:</strong> Mon–Sat · 8 AM – 8 PM</p>
+      <p><strong>Emergency:</strong> 24/7</p>
+      <p><strong>Pharmacy:</strong> 24/7</p>
+      <p><strong>Lab:</strong> Mon–Sat · 7 AM – 9 PM</p>`;
+  },
+  cost() {
     return `
-    <p><strong>💰 Consultation Fees</strong></p>
-    <ul>
-      <li>General Medicine: ₹500</li>
-      <li>Specialist: ₹800–1200</li>
-      <li>Super Specialist: ₹1500–2000</li>
-    </ul>
-    <p><small>We accept all major insurance providers</small></p>
-  `;
-  }
-
-  function generateDepartmentResponse(deptKey) {
-    const dept = knowledgeBase.departments[deptKey];
-    chatbotState.userContext.lastDepartment = dept.name;
+      <p><strong>💰 Consultation Fees</strong></p>
+      <ul>
+        <li>General Medicine: ₹500</li>
+        <li>Specialist: ₹800 – ₹1,200</li>
+        <li>Super Specialist: ₹1,500 – ₹2,000</li>
+      </ul>
+      <p><small>We accept all major insurance providers.</small></p>`;
+  },
+  reports() {
     return `
-    <p><strong>${dept.name}</strong></p>
-    <p><strong>Services:</strong></p>
-    <ul>${dept.services.map(s => `<li>${s}</li>`).join('')}</ul>
-    <p><strong>Doctors:</strong> ${dept.doctors.join(', ')}</p>
-    <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
-      <i class="icofont-calendar"></i> Book Appointment
-    </button>
-  `;
+      <p><strong>📋 Reports & Test Results</strong></p>
+      <p>You can collect your reports from the Lab counter or view them online after logging in.</p>
+      <button class="option-btn" onclick="window.location.href='${PATIENT_LOGIN_URL}'">
+        <i class="icofont-user"></i> Login to View Reports
+      </button>`;
+  },
+  profile() {
+    return `
+      <p><strong>👤 Your Patient Details</strong></p>
+      <p>Log in to view your appointments, bills, reports, and prescriptions.</p>
+      <div class="response-options">
+        <button class="option-btn" onclick="window.location.href='${PATIENT_LOGIN_URL}'">
+          <i class="icofont-user"></i> Patient Login
+        </button>
+        <button class="option-btn" onclick="window.location.href='/register'">
+          <i class="icofont-plus"></i> Register
+        </button>
+      </div>`;
+  },
+  pharmacy() {
+    return `
+      <p><strong>💊 Pharmacy</strong></p>
+      <p>Our in-house pharmacy is open <strong>24/7</strong> and stocks all prescribed medicines. Bring your prescription for immediate dispensing.</p>`;
+  },
+  symptoms(msg) {
+    const deptKey = detectDepartment(msg);
+    return buildDeptCard(deptKey);
+  }
+};
+
+/* ───────────────────────────────────────────────────────
+   CORE PROCESSOR  — the decision tree
+─────────────────────────────────────────────────────── */
+async function processMessage(message) {
+  const msg = message.toLowerCase().trim();
+
+  /* 1. Confirmation flow — user said yes after dept suggestion */
+  const confirmWords = ["yes","yeah","yep","ok","okay","sure","please","book","go ahead"];
+  if (state.lastDepartment && confirmWords.some(w => msg === w || msg.startsWith(w))) {
+    addBotMessage(`
+      <p>Great! Booking you for <strong>${state.lastDepartment}</strong>.</p>
+      <button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
+        <i class="icofont-calendar"></i> Book Appointment
+      </button>`);
+    state.lastDepartment = null;
+    return;
   }
 
-  function generateResponse(intent, msg) {
-    switch (intent) {
-      case 'greeting': return knowledgeBase.responses.greeting[Math.floor(Math.random() * 2)];
-      case 'farewell': return knowledgeBase.responses.farewell[Math.floor(Math.random() * 2)];
-      case 'appointment': return generateAppointmentResponse();
-      case 'emergency': return generateEmergencyResponse();
-      case 'services': return generateServicesResponse();
-      case 'doctors': return generateDoctorsResponse();
-      case 'location': return generateLocationResponse();
-      case 'hours': return generateHoursResponse();
-      case 'cost': return generateCostResponse();
-      // ✅ symptoms handled fully in JS — no API call
-      case 'symptoms': return generateSymptomResponse(msg);
-      default:
-        if (intent.startsWith('department_')) {
-          return generateDepartmentResponse(intent.replace('department_', ''));
-        }
-        return null; // null = needs API
-    }
+  /* 2. Complexity check — multi-symptom / reasoning needed → API */
+  if (needsAPIReasoning(msg)) {
+    await callAPI(message);
+    return;
   }
 
-  /* ═══════════════════════════════════════════════════════
-     MAIN MESSAGE PROCESSOR
-     Decision tree: JS first → API only when needed
-  ═══════════════════════════════════════════════════════ */
-  async function processMessageWithNLP(message) {
-    const msg = message.toLowerCase().trim();
-
-    // 1. Context: user confirmed after a department was suggested
-    const confirmWords = ['yes', 'yeah', 'yep', 'ok', 'okay', 'sure'];
-    if (chatbotState.userContext.lastDepartment && confirmWords.includes(msg)) {
-      addMessage(
-        `<button class="option-btn" onclick="window.location.href='${APPOINTMENT_URL}'">
-        <i class="icofont-calendar"></i> Book Appointment — ${chatbotState.userContext.lastDepartment}
-      </button>`,
-        'bot'
-      );
+  /* 3. JS intent matching — fast, free */
+  for (const { name, pattern } of INTENTS) {
+    if (pattern.test(msg)) {
+      state.lastIntent = name;
+      const handler = RESPONSES[name];
+      addBotMessage(typeof handler === "function" ? handler(msg) : handler);
       return;
     }
+  }
 
-    // 2. Try JS intent matching (fast, free)
-    const intent = detectIntent(msg);
-    chatbotState.userContext.lastIntent = intent;
-    chatbotState.userContext.lastMessage = msg;
+  /* 4. Single symptom — JS dept lookup */
+  const symptomCount = SYMPTOM_WORDS.filter(s => msg.includes(s)).length;
+  if (symptomCount === 1) {
+    state.lastIntent = "symptoms";
+    addBotMessage(RESPONSES.symptoms(msg));
+    return;
+  }
 
-    const jsResponse = generateResponse(intent, msg);
-    if (jsResponse !== null) {
-      addMessage(jsResponse, 'bot');
-      return;
-    }
+  /* 5. Hospital relevance check */
+  if (!isHospitalRelated(msg)) {
+    addBotMessage("I can only assist with hospital and health-related queries. How can I help you today?");
+    return;
+  }
 
-    // 3. Check if it's even hospital-related before calling API
-    const hospitalKeywords = ['hospital', 'doctor', 'appointment', 'bill', 'billing', 'report',
-      'fever', 'pain', 'cough', 'cold', 'headache', 'migraine', 'vomiting', 'dizziness', 'stomach',
-      'chest', 'heart', 'bp', 'blood', 'sugar', 'diabetes', 'infection', 'injury', 'fracture', 'scan',
-      'mri', 'xray', 'medicine', 'department', 'specialist', 'symptom', 'treatment', 'health',
-      'emergency', 'sick', 'ill', 'unwell', 'disease'];
-    const healthPhrases = ['i am', 'i have', 'i feel', 'suffering', 'having', 'experiencing', 'feeling'];
-    const isHospitalQuery = hospitalKeywords.some(kw => msg.includes(kw))
-      || healthPhrases.some(p => msg.includes(p));
+  /* 6. API fallback — complex / conversational / unmatched hospital queries */
+  await callAPI(message);
+}
 
-    if (!isHospitalQuery) {
-      addMessage("I'm Marvel Hospital's virtual assistant and can only help with hospital-related queries. How can I assist you with your health?", 'bot');
-      return;
-    }
+/* ───────────────────────────────────────────────────────
+   API CALLER  (shared, single path)
+─────────────────────────────────────────────────────── */
+async function callAPI(message) {
+  try {
+    const res = await fetch("/api/chatbot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
 
-    // 4. API fallback — only for complex/conversational queries that JS can't handle
-    try {
-      const res = await fetch('/api/chatbot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-      const data = await res.json();
-      let reply = data.reply || "I didn't quite catch that. Could you rephrase?";
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Update department context from API reply
-      for (const [key, dept] of Object.entries(knowledgeBase.departments)) {
-        if (reply.toLowerCase().includes(dept.name.toLowerCase())) {
-          chatbotState.userContext.lastDepartment = dept.name;
-          break;
-        }
+    const data = await res.json();
+    const reply = data.reply || "I didn't quite catch that. Could you please rephrase?";
+
+    // Update dept context if API mentions a department
+    for (const dept of Object.values(DEPARTMENTS)) {
+      if (reply.toLowerCase().includes(dept.name.toLowerCase())) {
+        state.lastDepartment = dept.name;
+        break;
       }
-
-      addMessage(reply, 'bot');
-    } catch (err) {
-      addMessage("Something went wrong. Please call us at " + CHATBOT_CONFIG.supportPhone, 'bot');
     }
+
+    addBotMessage(reply);
+  } catch (err) {
+    console.error("Chatbot API error:", err);
+    addBotMessage(`Something went wrong. For immediate help please call <strong>${SUPPORT_PHONE}</strong>.`);
   }
+}
 
-  /* ═══════════════════════════════════════════════════════
-     UI FUNCTIONS (unchanged structure, kept for completeness)
-  ═══════════════════════════════════════════════════════ */
-  document.addEventListener('DOMContentLoaded', function () {
-    chatbotState.conversationId = generateUUID();
-    document.getElementById('chatbotForm').addEventListener('submit', sendMessage);
-    document.getElementById('chatInput').addEventListener('input', updateCharCount);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && chatbotState.isOpen) toggleChatbot(); });
-    setTimeout(() => { if (!chatbotState.isOpen) animateNotificationBadge(); }, 3000);
-    localStorage.removeItem('hms_chat_history');
-  });
+/* ═══════════════════════════════════════════════════════
+   UI FUNCTIONS
+═══════════════════════════════════════════════════════ */
 
-  function toggleChatbot() {
-    chatbotState.isOpen = !chatbotState.isOpen;
-    const launcher = document.getElementById('chatbotLauncher');
-    const windowEl = document.getElementById('chatbotWindow');
-    const badge = document.getElementById('notificationBadge');
-    if (chatbotState.isOpen) {
-      launcher.style.display = 'none';
-      windowEl.classList.add('open');
-      badge.classList.add('hidden');
-      resetChat();
-      setTimeout(() => document.getElementById('chatInput')?.focus(), 300);
-      markMessagesAsSeen();
-    } else {
-      launcher.style.display = 'flex';
-      windowEl.classList.remove('open');
-      chatbotState.isMinimized = false;
-    }
+function toggleChatbot() {
+  state.isOpen = !state.isOpen;
+  const launcher = document.getElementById("chatbotLauncher");
+  const win      = document.getElementById("chatbotWindow");
+  const badge    = document.getElementById("notificationBadge");
+
+  if (state.isOpen) {
+    launcher.style.display = "none";
+    win.classList.add("open");
+    badge.classList.add("hidden");
+    resetChat();
+    setTimeout(() => document.getElementById("chatInput")?.focus(), 300);
+  } else {
+    launcher.style.display = "flex";
+    win.classList.remove("open");
+    state.isMinimized = false;
+    win.classList.remove("minimized");
   }
+}
 
-  function minimizeChatbot() {
-    chatbotState.isMinimized = !chatbotState.isMinimized;
-    document.getElementById('chatbotWindow').classList.toggle('minimized');
-  }
+function minimizeChatbot() {
+  state.isMinimized = !state.isMinimized;
+  document.getElementById("chatbotWindow").classList.toggle("minimized");
+}
 
-  function sendMessage(event) {
-    if (event) event.preventDefault();
-    const input = document.getElementById('chatInput');
-    const message = input.value.trim();
-    if (!message) return;
-    addMessage(message, 'user');
-    input.value = '';
-    updateCharCount();
-    hideSuggestions();
-    showTypingIndicator();
-    setTimeout(() => {
-      hideTypingIndicator();
-      processMessageWithNLP(message);
-    }, 800 + Math.random() * 600);
-  }
-
-  function resetChat() {
-    document.getElementById('chatbotMessages').innerHTML = `
+function resetChat() {
+  document.getElementById("chatbotMessages").innerHTML = `
     <div class="message-wrapper bot-message">
       <div class="message-avatar"><i class="icofont-robot"></i></div>
       <div class="message-content">
         <div class="message-bubble animate-in">
           <div class="message-text">
             <p class="greeting-text">Hello! 👋 I'm your Marvel AI Assistant</p>
-            <p>I can help with appointments, doctors, services, or any health queries. How can I assist you today?</p>
+            <p>I can help with appointments, doctors, departments, or any health concern. How can I assist you today?</p>
           </div>
         </div>
       </div>
     </div>`;
-    chatbotState.messageHistory = [];
-    chatbotState.messageCount = 0;
-    chatbotState.userContext = { lastIntent: null, lastDepartment: null, lastMessage: null };
-  }
+  state.lastDepartment = null;
+  state.lastIntent = null;
+}
 
-  function addMessage(text, sender) {
-    const container = document.getElementById('chatbotMessages');
-    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const div = document.createElement('div');
-    div.className = `message-wrapper ${sender}-message`;
-    div.innerHTML = `
-    <div class="message-avatar">${sender === 'bot' ? '<i class="icofont-robot"></i>' : ''}</div>
+function sendMessage(event) {
+  if (event) event.preventDefault();
+  const input   = document.getElementById("chatInput");
+  const message = input.value.trim();
+  if (!message) return;
+
+  addUserMessage(message);
+  input.value = "";
+  updateCharCount();
+  hideSuggestions();
+  showTypingIndicator();
+
+  setTimeout(async () => {
+    hideTypingIndicator();
+    await processMessage(message);
+  }, 600 + Math.random() * 500);
+}
+
+function addUserMessage(text) {
+  const c    = document.getElementById("chatbotMessages");
+  const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const div  = document.createElement("div");
+  div.className = "message-wrapper user-message";
+  div.innerHTML = `
+    <div class="message-avatar"></div>
     <div class="message-content">
       <div class="message-bubble animate-in">
-        <div class="message-text">${sender === 'user' ? escapeHTML(text) : text}</div>
+        <div class="message-text">${escapeHTML(text)}</div>
       </div>
       <div class="message-meta"><span class="message-time">${time}</span></div>
     </div>`;
-    container.appendChild(div);
-    scrollToBottom();
-    chatbotState.messageCount++;
-    chatbotState.messageHistory.push({ sender, text, time });
-  }
+  c.appendChild(div);
+  scrollToBottom();
+}
 
-  function quickMessage(msg) { document.getElementById('chatInput').value = msg; sendMessage({ preventDefault: () => { } }); }
-  function sendSuggestion(text) { quickMessage(text); }
-  function showTypingIndicator() { document.getElementById('typingIndicator').style.display = 'flex'; scrollToBottom(); }
-  function hideTypingIndicator() { document.getElementById('typingIndicator').style.display = 'none'; }
-  function hideSuggestions() { document.getElementById('suggestedResponses').style.display = 'none'; }
-  function scrollToBottom() { const c = document.getElementById('chatbotMessages'); c.scrollTop = c.scrollHeight; }
-  function updateCharCount() { const i = document.getElementById('chatInput'); document.getElementById('charCount').textContent = i.value.length; }
-  function animateNotificationBadge() { document.getElementById('notificationBadge').classList.remove('hidden'); }
-  function markMessagesAsSeen() { document.getElementById('notificationBadge').classList.add('hidden'); }
-  function escapeHTML(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
-  function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16) }); }
-  function callHospital() { window.location.href = `tel:${CHATBOT_CONFIG.supportPhone}`; }
-  function callEmergency() { if (confirm(`Call Emergency: ${CHATBOT_CONFIG.supportPhone}?`)) callHospital(); }
-  function startVoiceInput() {
-    if (!('webkitSpeechRecognition' in window)) { alert('Voice input not supported'); return; }
-    const r = new webkitSpeechRecognition();
-    const btn = document.getElementById('voiceBtn');
-    r.lang = 'en-US'; r.continuous = false; r.interimResults = false;
-    r.onstart = () => { btn.classList.add('recording'); btn.innerHTML = '<i class="icofont-stop"></i>'; };
-    r.onresult = e => { document.getElementById('chatInput').value = e.results[0][0].transcript; };
-    r.onend = r.onerror = () => { btn.classList.remove('recording'); btn.innerHTML = '<i class="icofont-mic"></i>'; };
-    r.start();
-  }
-  function toggleEmojiPicker() { alert('Emoji picker coming soon!'); }
-  function contactSupport() {
-    addMessage(`<p><strong>Contact Support</strong></p><p>📞 ${CHATBOT_CONFIG.supportPhone}</p><p>📧 ${CHATBOT_CONFIG.supportEmail}</p><button class="option-btn" onclick="callHospital()"><i class="icofont-phone"></i> Call Now</button>`, 'bot');
-  }
+function addBotMessage(html) {
+  const c    = document.getElementById("chatbotMessages");
+  const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const div  = document.createElement("div");
+  div.className = "message-wrapper bot-message";
+  div.innerHTML = `
+    <div class="message-avatar"><i class="icofont-robot"></i></div>
+    <div class="message-content">
+      <div class="message-bubble animate-in">
+        <div class="message-text">${html}</div>
+      </div>
+      <div class="message-meta"><span class="message-time">${time}</span></div>
+    </div>`;
+  c.appendChild(div);
+  scrollToBottom();
+}
+
+function quickMessage(msg)    { document.getElementById("chatInput").value = msg; sendMessage({ preventDefault: () => {} }); }
+function sendSuggestion(text) { quickMessage(text); }
+
+function showTypingIndicator()  { document.getElementById("typingIndicator").style.display = "flex"; scrollToBottom(); }
+function hideTypingIndicator()  { document.getElementById("typingIndicator").style.display = "none"; }
+function hideSuggestions()      { document.getElementById("suggestedResponses").style.display = "none"; }
+function scrollToBottom()       { const c = document.getElementById("chatbotMessages"); c.scrollTop = c.scrollHeight; }
+function updateCharCount()      { document.getElementById("charCount").textContent = document.getElementById("chatInput").value.length; }
+function escapeHTML(t)          { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+
+function startVoiceInput() {
+  if (!("webkitSpeechRecognition" in window)) { alert("Voice input not supported in this browser"); return; }
+  const r   = new webkitSpeechRecognition();
+  const btn = document.getElementById("voiceBtn");
+  r.lang = "en-IN"; r.continuous = false; r.interimResults = false;
+  r.onstart  = () => { btn.classList.add("recording"); btn.innerHTML = '<i class="icofont-stop"></i>'; };
+  r.onresult = e => { document.getElementById("chatInput").value = e.results[0][0].transcript; };
+  r.onend    = () => { btn.classList.remove("recording"); btn.innerHTML = '<i class="icofont-mic"></i>'; };
+  r.onerror  = () => { btn.classList.remove("recording"); btn.innerHTML = '<i class="icofont-mic"></i>'; };
+  r.start();
+}
+
+function toggleEmojiPicker() { /* plug in an emoji library here */ }
+
+/* ───────────────────────────────────────────────────────
+   INIT
+─────────────────────────────────────────────────────── */
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("chatbotForm").addEventListener("submit", sendMessage);
+  document.getElementById("chatInput").addEventListener("input", updateCharCount);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && state.isOpen) toggleChatbot(); });
+
+  // Show notification badge after 3 s if chat is still closed
+  setTimeout(() => {
+    if (!state.isOpen) {
+      document.getElementById("notificationBadge").classList.remove("hidden");
+    }
+  }, 3000);
+});
 </script>
 
 {% endblock %}
