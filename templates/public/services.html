@@ -1389,7 +1389,7 @@
   async function processMessageWithNLP(message) {
 
     const lowerMsg = message.toLowerCase();
-    const hospitalKeywords = [
+   const hospitalKeywords = [
   "hospital",
   "doctor",
   "appointment",
@@ -1423,23 +1423,41 @@
   "symptom",
   "treatment",
   "health",
-  "emergency"
+  "emergency",
+  "sick",
+  "ill",
+  "unwell",
+  "disease",
+  "problem"
 ];
 
-    const isHospitalQuery = hospitalKeywords.some(
-      word => lowerMsg.includes(word)
-    );
+const isHospitalQuery = hospitalKeywords.some(
+  word => lowerMsg.includes(word)
+);
 
-    if (
-      detectIntent(lowerMsg) === "unknown" &&
-      !isHospitalQuery
-    ) {
-      addMessage(
-        "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
-        "bot"
-      );
-      return;
-    }
+const healthPhrases = [
+  "i am",
+  "i have",
+  "i feel",
+  "suffering",
+  "having",
+  "experiencing"
+];
+
+const looksLikeHealthQuery =
+  healthPhrases.some(p => lowerMsg.includes(p));  healthPhrases.some(p => lowerMsg.includes(p));
+
+if (
+  detectIntent(lowerMsg) === "unknown" &&
+  !isHospitalQuery &&
+  !looksLikeHealthQuery
+) {
+  addMessage(
+    "I am Marvel Hospital's virtual assistant and can only help with hospital-related queries.",
+    "bot"
+  );
+  return;
+}
     const lastIntent = chatbotState.userContext.lastIntent || null;
     const intent = detectIntent(lowerMsg);
     chatbotState.userContext.lastIntent = intent;
