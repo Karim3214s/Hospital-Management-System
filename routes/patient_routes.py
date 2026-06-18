@@ -300,16 +300,16 @@ def patient_book():
 
     # 🔥 CREATE APPOINTMENT
     appt = Appointment(
-        patient_Id = session["entity_id"],
-        doct_Id = body["doctor_id"],
-        appointment_date = datetime.date.fromisoformat(
-    body["date"]
-),
-        slot_time = slot_time,
-        appointment_status = "Scheduled",
-        reason = body.get("reason"),
-        consultation_fee = consultation_fee   # ✅ VERY IMPORTANT
-    )
+    patient_Id=session["entity_id"],
+    doct_Id=body["doctor_id"],
+    appointment_Date=datetime.date.fromisoformat(
+        body["date"]
+    ),
+    slot_time=slot_time,
+    appointment_status="Scheduled",
+    reason=body.get("reason"),
+    consultation_fee=consultation_fee
+)
 
     db.add(appt)
     db.commit()
