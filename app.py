@@ -48,11 +48,13 @@ def create_app():
     # 🔹 DATABASE CONFIG
     app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-    # 🔹 INIT EXTENSIONS
-    db.init_app(app)
-
-    Migrate(app, db)
+    
+    # 🔹 DATABASE / DEMO MODE
+    DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
+    
+    if not DEMO_MODE:
+        db.init_app(app)
+        Migrate(app, db)
 
     # ─────────────────────────────────────────────────────
     # GLOBAL EMAIL FUNCTION (SendGrid API)
